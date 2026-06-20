@@ -1,4 +1,5 @@
 .env
+run_alerts.sh
 __pycache__/
 *.pyc
 *.pyo
