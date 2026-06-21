@@ -4,7 +4,12 @@ import threading
 import time
 from datetime import datetime, timezone
 
-import stripe
+try:
+    import stripe
+    STRIPE_OK = True
+except ImportError:
+    STRIPE_OK = False
+
 import dash
 from dash import dash_table, dcc, html
 from dash.dependencies import Input, Output
@@ -38,7 +43,7 @@ STRIPE_WEBHOOK_SEC  = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 TG_TOKEN            = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TG_ADMIN            = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
 TG_CHANNEL          = os.getenv("TELEGRAM_CHANNEL_ID", "")
-if STRIPE_SECRET:
+if STRIPE_SECRET and STRIPE_OK:
     stripe.api_key = STRIPE_SECRET
 
 SUBS_FILE = "subscribers.json"
@@ -75,12 +80,15 @@ def _make_invite():
 
 
 # ── Stripe webhook ──────────────────────────────────────────────────────
-@server.route("/webhook", methods=["POST"])
+@server.route("/webhook", methods=["GET", "POST"])
 def stripe_webhook():
+    if request.method == "GET":
+        return jsonify({"status": "webhook ready", "stripe_configured": bool(STRIPE_SECRET and STRIPE_OK)})
+
     payload = request.data
     sig     = request.headers.get("Stripe-Signature", "")
     try:
-        if STRIPE_WEBHOOK_SEC:
+        if STRIPE_WEBHOOK_SEC and STRIPE_OK:
             event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SEC)
         else:
             event = request.json
@@ -107,8 +115,8 @@ def stripe_webhook():
     elif etype in ("customer.subscription.deleted", "customer.subscription.paused"):
         customer_id = obj.get("customer", "")
         try:
-            c     = stripe.Customer.retrieve(customer_id)
-            email = c.get("email", "unknown")
+            email = (stripe.Customer.retrieve(customer_id).get("email", "unknown")
+                     if STRIPE_OK else customer_id)
         except Exception:
             email = customer_id
         db = _load_subs()
@@ -123,7 +131,32 @@ def stripe_webhook():
 
 @server.route("/health")
 def health():
-    return jsonify({"status": "ok", "subscribers": len(_load_subs())})
+    return jsonify({"status": "ok", "subscribers": len(_load_subs()), "stripe": bool(STRIPE_SECRET and STRIPE_OK)})
+
+
+@server.route("/success")
+def success():
+    return """<!DOCTYPE html>
+<html><head><title>CarryFi — You're in!</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0a;color:#e5e5e5;font-family:-apple-system,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
+  .card{background:#111;border:1px solid #f0b42933;border-radius:20px;padding:48px 40px;max-width:480px}
+  h1{font-size:2rem;font-weight:800;color:#f0b429;margin-bottom:12px}
+  p{color:#888;line-height:1.7;margin-bottom:20px}
+  .step{background:#1a1a1a;border-radius:10px;padding:16px 20px;margin-bottom:12px;text-align:left;font-size:0.9rem}
+  .step strong{color:#f0b429}
+  a{color:#f0b429}
+</style></head>
+<body><div class="card">
+  <h1>⚡ You're in!</h1>
+  <p>Payment confirmed. One last step to get your Telegram alerts:</p>
+  <div class="step"><strong>1.</strong> Message <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a> on Telegram with your email address</div>
+  <div class="step"><strong>2.</strong> We'll send you the private channel invite within minutes</div>
+  <div class="step"><strong>3.</strong> Alerts fire every 15 minutes, 24/7</div>
+  <p style="margin-top:24px;font-size:0.85rem">Questions? Telegram: <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a></p>
+</div></body></html>"""
 
 APR_THRESHOLD = float(os.getenv("APR_ALERT_THRESHOLD", "20"))
 
