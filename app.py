@@ -182,6 +182,21 @@ def telegram_update():
 
     email = text.lower()
 
+    # Admin command: /invite email@example.com — force-send an invite link
+    if text.startswith("/invite ") and str(chat_id) == str(TG_ADMIN):
+        target_email = text.split(" ", 1)[1].strip().lower()
+        invite = _make_invite() if TG_CHANNEL else None
+        if invite:
+            db = _load_subs()
+            if target_email not in db:
+                db[target_email] = {"status": "active"}
+            db[target_email]["tg_invited"] = True
+            _save_subs(db)
+            _tg(TG_ADMIN, f"✅ Invite generated for `{target_email}`:\n{invite}\n\nForward this to them.")
+        else:
+            _tg(TG_ADMIN, "⚠️ Could not generate invite link — check TELEGRAM_CHANNEL_ID.")
+        return jsonify({"ok": True})
+
     if not text or text.startswith("/"):
         _tg(chat_id,
             "👋 Welcome to CarryFi!\n\n"
@@ -207,12 +222,18 @@ def telegram_update():
             if TG_ADMIN:
                 _tg(TG_ADMIN, f"✅ Auto-invited `{email}` to the channel.")
         else:
-            _tg(chat_id, "✅ Confirmed! There's a small issue generating your link — we'll send it to you within minutes.")
+            _tg(chat_id, "✅ Confirmed! There's a small delay generating your link — we'll send it within minutes.")
     else:
+        # Soft fallback — payment records can lag or reset; don't accuse them
         _tg(chat_id,
-            "❌ That email isn't in our subscriber list.\n\n"
-            "Make sure you used the same email you paid with. "
-            "If you think this is a mistake, reply here and we'll sort it out.")
+            "⏳ *Still confirming your payment* — this can take a few minutes after checkout.\n\n"
+            "Wait 5 minutes and send your email again. "
+            "If it still doesn't work, reply *SUPPORT* and a human will get you in within the hour.")
+        if TG_ADMIN:
+            _tg(TG_ADMIN,
+                f"⚠️ *Access request not found:* `{email}`\n\n"
+                f"They claimed to have paid. Check Stripe and if confirmed, "
+                f"reply `/invite {email}` here to send them a link manually.")
 
     return jsonify({"ok": True})
 
