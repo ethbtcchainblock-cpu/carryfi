@@ -18,7 +18,6 @@ from dash import dash_table, dcc, html
 from dash.dependencies import Input, Output
 from flask import request, jsonify, redirect
 
-from alerts import check_and_alert
 from fetcher import fetch_all
 
 _cache: dict = {"rows": [], "updated": "—"}
@@ -26,9 +25,11 @@ _lock = threading.Lock()
 
 
 def refresh_loop():
+    # NOTE: alerting is owned solely by alert_runner.py (GitHub Actions cron).
+    # This loop only refreshes the dashboard cache — calling check_and_alert here
+    # caused duplicate alerts (two systems, two separate dedup caches).
     while True:
         rows = fetch_all()
-        check_and_alert(rows)
         with _lock:
             _cache["rows"] = rows
             _cache["updated"] = datetime.now(tz=timezone.utc).strftime("%H:%M:%S UTC")
@@ -180,13 +181,20 @@ def _make_invite():
         return None
 
 
+# Secret token Telegram echoes back in X-Telegram-Bot-Api-Secret-Token so we can
+# reject forged POSTs to /telegram. Derived from the bot token (stable, not stored).
+import hashlib as _hashlib
+TG_WEBHOOK_SECRET = _hashlib.sha256(("cf_tg_hook_" + TG_TOKEN).encode()).hexdigest()[:48] if TG_TOKEN else ""
+
+
 def _register_tg_webhook():
     if not TG_TOKEN:
         return
     try:
         import requests as _r
         _r.post(f"https://api.telegram.org/bot{TG_TOKEN}/setWebhook",
-                json={"url": "https://carryfi-dashboard.onrender.com/telegram"}, timeout=10)
+                json={"url": "https://carryfi-dashboard.onrender.com/telegram",
+                      "secret_token": TG_WEBHOOK_SECRET}, timeout=10)
     except Exception:
         pass
 
@@ -249,11 +257,16 @@ def stripe_webhook():
 @server.route("/telegram", methods=["POST"])
 def telegram_update():
     global TG_CHANNEL
+    # Reject forged requests: Telegram echoes our secret token on every real update.
+    if TG_WEBHOOK_SECRET and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != TG_WEBHOOK_SECRET:
+        return jsonify({"error": "unauthorized"}), 403
     data = request.json or {}
 
-    # Auto-detect channel ID from any channel post
+    # Channel auto-detect is a ONE-TIME bootstrap only. If TELEGRAM_CHANNEL_ID is
+    # already set via env, never reassign — otherwise anyone who adds the bot to a
+    # channel and posts could hijack where subscriber alerts get sent.
     channel_post = data.get("channel_post", {})
-    if channel_post:
+    if channel_post and not os.getenv("TELEGRAM_CHANNEL_ID"):
         detected_id = str(channel_post.get("chat", {}).get("id", ""))
         if detected_id and detected_id != TG_CHANNEL:
             TG_CHANNEL = detected_id

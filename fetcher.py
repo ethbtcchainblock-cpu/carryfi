@@ -85,8 +85,14 @@ def fetch_okx() -> list[dict]:
             if inst_id.endswith("-USDT-SWAP"):
                 oi_map[inst_id] = float(item.get("oiCcy", 0))
 
-        liquid = [(k, float(v.get("volCcy24h", 0))) for k, v in ticker_map.items()
-                  if float(v.get("volCcy24h", 0)) >= MIN_VOLUME_USD]
+        # OKX volCcy24h is denominated in the BASE coin, not USD.
+        # USD notional = volCcy24h × last price. (Using it raw wrongly excluded BTC
+        # and let sub-cent coins like PEPE show $12T "volume".)
+        liquid = []
+        for k, v in ticker_map.items():
+            vol_usd = float(v.get("volCcy24h", 0)) * float(v.get("last", 0) or 0)
+            if vol_usd >= MIN_VOLUME_USD:
+                liquid.append((k, vol_usd))
 
         def _fetch_rate(inst_id: str, vol_usd: float):
             try:
