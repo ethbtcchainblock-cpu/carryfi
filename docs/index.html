@@ -55,12 +55,23 @@
     /* Hero */
     .hero {
       flex: 1;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 80px 24px 60px;
+      gap: 60px;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 80px 40px 60px;
+      width: 100%;
+    }
+    .hero-text { text-align: left; }
+    .hero-visual { display: flex; justify-content: center; }
+    @media (max-width: 800px) {
+      .hero { grid-template-columns: 1fr; padding: 60px 24px 40px; }
+      .hero-text { text-align: center; }
+      .hero-visual { display: none; }
+      .cta-group { justify-content: center; }
+      .proof-strip { justify-content: center; }
     }
     .badge {
       display: inline-flex;
@@ -345,33 +356,97 @@
 </nav>
 
 <section class="hero">
-  <div class="badge">⚡ Live alerts · 3 exchanges · 150+ markets</div>
-  <h1>Earn <span>20–100%+ APR</span><br/>with zero price risk</h1>
-  <p class="sub">CarryFi monitors funding rates across Hyperliquid, OKX, and Gate.io 24/7 — and pings you on Telegram the moment a high-yield carry trade opens up.</p>
-  <div class="cta-group">
-    <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="btn-primary">Start Getting Alerts — $19/mo</a>
-    <a href="#how" class="btn-secondary">See how it works</a>
+  <div class="hero-text">
+    <div class="badge">⚡ Live alerts · 3 exchanges · 150+ markets</div>
+    <h1>Earn <span>20–100%+ APR</span><br/>with zero price risk</h1>
+    <p class="sub">CarryFi monitors funding rates across Hyperliquid, OKX, and Gate.io 24/7 — and pings you on Telegram the moment a high-yield carry trade opens up.</p>
+    <div class="cta-group">
+      <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="btn-primary">Start Getting Alerts — $19/mo</a>
+      <a href="#how" class="btn-secondary">See how it works</a>
+    </div>
+    <div class="proof-strip" style="justify-content:flex-start;margin-top:40px;padding:0">
+      <div class="proof-item">
+        <div class="proof-num">150+</div>
+        <div class="proof-label">Markets tracked</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-num">15 min</div>
+        <div class="proof-label">Alert speed</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-num">24/7</div>
+        <div class="proof-label">Always on</div>
+      </div>
+    </div>
   </div>
 
-  <div class="proof-strip">
-    <div class="proof-item">
-      <div class="proof-num">150+</div>
-      <div class="proof-label">Liquid markets tracked</div>
-    </div>
-    <div class="proof-item">
-      <div class="proof-num">3</div>
-      <div class="proof-label">Top exchanges</div>
-    </div>
-    <div class="proof-item">
-      <div class="proof-num">15 min</div>
-      <div class="proof-label">Alert frequency</div>
-    </div>
-    <div class="proof-item">
-      <div class="proof-num">24/7</div>
-      <div class="proof-label">Always watching</div>
-    </div>
+  <div class="hero-visual">
+    <!-- Phone mockup with Telegram alerts -->
+    <svg width="280" height="520" viewBox="0 0 280 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Phone body -->
+      <rect x="10" y="0" width="260" height="520" rx="36" fill="#1a1a1a" stroke="#333" stroke-width="1.5"/>
+      <!-- Screen -->
+      <rect x="18" y="12" width="244" height="496" rx="28" fill="#0f0f0f"/>
+      <!-- Notch -->
+      <rect x="100" y="12" width="80" height="24" rx="12" fill="#1a1a1a"/>
+      <!-- Status bar -->
+      <text x="30" y="52" font-family="system-ui" font-size="11" fill="#666">9:41</text>
+      <text x="200" y="52" font-family="system-ui" font-size="11" fill="#666">●●●</text>
+      <!-- Telegram header -->
+      <rect x="18" y="58" width="244" height="48" fill="#161616"/>
+      <circle cx="52" cy="82" r="16" fill="#229ED9"/>
+      <text x="48" y="87" font-family="system-ui" font-size="13" font-weight="700" fill="white" text-anchor="middle">C</text>
+      <text x="76" y="78" font-family="system-ui" font-size="12" font-weight="700" fill="#e5e5e5">CarryFi Alerts</text>
+      <text x="76" y="93" font-family="system-ui" font-size="10" fill="#555">150 subscribers</text>
+
+      <!-- Alert bubble 1 -->
+      <rect x="26" y="120" width="210" height="88" rx="12" fill="#1e1e1e"/>
+      <text x="40" y="140" font-family="system-ui" font-size="9" font-weight="700" fill="#f0b429">⚡ CarryFi Alert</text>
+      <text x="40" y="157" font-family="system-ui" font-size="11" font-weight="700" fill="#fff">XMR · Hyperliquid</text>
+      <text x="40" y="173" font-family="system-ui" font-size="10" fill="#aaa">Rate: 0.01266%/h</text>
+      <text x="40" y="187" font-family="system-ui" font-size="11" font-weight="700" fill="#f0b429">APR: 110.9%</text>
+      <text x="40" y="200" font-family="system-ui" font-size="9" fill="#4ade80">→ Long spot + short perp</text>
+      <text x="210" y="200" font-family="system-ui" font-size="9" fill="#444">8:08</text>
+
+      <!-- Alert bubble 2 -->
+      <rect x="26" y="218" width="210" height="88" rx="12" fill="#1e1e1e"/>
+      <text x="40" y="238" font-family="system-ui" font-size="9" font-weight="700" fill="#f0b429">⚡ CarryFi Alert</text>
+      <text x="40" y="255" font-family="system-ui" font-size="11" font-weight="700" fill="#fff">O · OKX</text>
+      <text x="40" y="271" font-family="system-ui" font-size="10" fill="#aaa">Rate: 0.0936%/8h</text>
+      <text x="40" y="285" font-family="system-ui" font-size="11" font-weight="700" fill="#f0b429">APR: 102.5%</text>
+      <text x="40" y="298" font-family="system-ui" font-size="9" fill="#4ade80">→ Long spot + short perp</text>
+      <text x="210" y="298" font-family="system-ui" font-size="9" fill="#444">8:08</text>
+
+      <!-- Alert bubble 3 -->
+      <rect x="26" y="316" width="210" height="88" rx="12" fill="#1e1e1e"/>
+      <text x="40" y="336" font-family="system-ui" font-size="9" font-weight="700" fill="#f0b429">⚡ CarryFi Alert</text>
+      <text x="40" y="353" font-family="system-ui" font-size="11" font-weight="700" fill="#fff">BILL · OKX</text>
+      <text x="40" y="369" font-family="system-ui" font-size="10" fill="#aaa">Rate: 0.0200%/8h</text>
+      <text x="40" y="383" font-family="system-ui" font-size="11" font-weight="700" fill="#f0b429">APR: 38.6%</text>
+      <text x="40" y="396" font-family="system-ui" font-size="9" fill="#4ade80">→ Long spot + short perp</text>
+      <text x="210" y="396" font-family="system-ui" font-size="9" fill="#444">8:23</text>
+
+      <!-- Input bar -->
+      <rect x="26" y="448" width="210" height="36" rx="18" fill="#1e1e1e"/>
+      <text x="60" y="471" font-family="system-ui" font-size="11" fill="#444">Message</text>
+
+      <!-- Home indicator -->
+      <rect x="110" y="500" width="60" height="4" rx="2" fill="#333"/>
+    </svg>
   </div>
 </section>
+
+<!-- Exchange trust strip -->
+<div style="border-top:1px solid #141414;border-bottom:1px solid #141414;padding:20px 24px;background:#0d0d0d;">
+  <div style="max-width:800px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:40px;flex-wrap:wrap;">
+    <span style="color:#444;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.08em">Live data from</span>
+    <span style="color:#888;font-weight:700;font-size:1rem;letter-spacing:-0.01em">Hyperliquid</span>
+    <span style="color:#333">·</span>
+    <span style="color:#888;font-weight:700;font-size:1rem">OKX</span>
+    <span style="color:#333">·</span>
+    <span style="color:#888;font-weight:700;font-size:1rem">Gate.io</span>
+  </div>
+</div>
 
 <!-- Ticker -->
 <div class="ticker-wrap">
