@@ -217,6 +217,40 @@ def telegram_update():
     return jsonify({"ok": True})
 
 
+DIGEST_FILE = "digest_list.json"
+
+def _load_digest():
+    try:
+        return json.loads(open(DIGEST_FILE).read())
+    except Exception:
+        return []
+
+def _save_digest(lst):
+    open(DIGEST_FILE, "w").write(json.dumps(lst, indent=2))
+
+
+@server.route("/subscribe", methods=["POST", "OPTIONS"])
+def subscribe():
+    # CORS for GitHub Pages
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+    }
+    if request.method == "OPTIONS":
+        return ("", 204, headers)
+    data = request.json or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        return (jsonify({"error": "invalid email"}), 400, headers)
+    lst = _load_digest()
+    if email not in lst:
+        lst.append(email)
+        _save_digest(lst)
+        if TG_ADMIN:
+            _tg(TG_ADMIN, f"📧 *New digest signup:* `{email}`\nTotal: {len(lst)}")
+    return (jsonify({"ok": True}), 200, headers)
+
+
 @server.route("/health")
 def health():
     return jsonify({"status": "ok", "subscribers": len(_load_subs()), "stripe": bool(STRIPE_SECRET and STRIPE_OK)})

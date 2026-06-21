@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Funding Rate APR Calculator — CarryFi</title>
+  <meta name="description" content="Free crypto funding rate calculator. Enter your capital and funding rate to see your daily, monthly, and annual carry trade yield. Works for Hyperliquid, OKX, and Gate.io." />
+  <meta property="og:title" content="Funding Rate APR Calculator — CarryFi" />
+  <meta property="og:description" content="Calculate your carry trade yield instantly. Enter capital + funding rate → see daily, monthly, annual earnings." />
+  <link rel="canonical" href="https://ethbtcchainblock-cpu.github.io/carryfi/calculator.html" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Funding Rate APR Calculator",
+    "description": "Calculate crypto carry trade yield from funding rates across Hyperliquid, OKX, and Gate.io.",
+    "url": "https://ethbtcchainblock-cpu.github.io/carryfi/calculator.html",
+    "applicationCategory": "FinanceApplication",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0a; color: #e5e5e5; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; min-height: 100vh; }
+    nav {
+      padding: 18px 40px; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #1a1a1a; position: sticky; top: 0;
+      background: #0a0a0aee; backdrop-filter: blur(12px); z-index: 100;
+    }
+    .logo { font-size: 1.3rem; font-weight: 800; color: #f0b429; letter-spacing: -0.02em; text-decoration: none; }
+    .nav-cta {
+      background: #f0b429; color: #000; font-weight: 700; font-size: 0.85rem;
+      padding: 9px 20px; border-radius: 8px; text-decoration: none;
+    }
+    .page { max-width: 780px; margin: 0 auto; padding: 60px 24px 80px; }
+    .page-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #f0b429; margin-bottom: 12px; }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 14px; line-height: 1.1; }
+    .desc { color: #666; font-size: 1rem; line-height: 1.65; margin-bottom: 48px; max-width: 600px; }
+
+    .calc-card {
+      background: #111; border: 1px solid #1e1e1e; border-radius: 20px; padding: 40px;
+      margin-bottom: 32px;
+    }
+    .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+    @media (max-width: 600px) { .input-grid { grid-template-columns: 1fr; } nav { padding: 16px 20px; } }
+    .field label { display: block; font-size: 0.78rem; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .field input, .field select {
+      width: 100%; background: #0a0a0a; border: 1px solid #222; border-radius: 10px;
+      padding: 13px 16px; color: #e5e5e5; font-size: 1rem; outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field select:focus { border-color: #f0b42966; }
+    .field select option { background: #111; }
+    .field.full { grid-column: 1 / -1; }
+
+    .results {
+      background: #0a0a0a; border: 1px solid #f0b42922; border-radius: 14px;
+      padding: 28px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    }
+    @media (max-width: 500px) { .results { grid-template-columns: 1fr; } }
+    .result-item { text-align: center; }
+    .result-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: #555; margin-bottom: 8px; }
+    .result-val { font-size: 1.8rem; font-weight: 800; color: #f0b429; letter-spacing: -0.03em; line-height: 1; }
+    .result-sub { font-size: 0.78rem; color: #444; margin-top: 6px; }
+
+    .apr-display {
+      text-align: center; margin-bottom: 28px; padding: 18px;
+      background: #1a1500; border: 1px solid #f0b42933; border-radius: 12px;
+    }
+    .apr-display .apr-num { font-size: 3rem; font-weight: 800; color: #f0b429; letter-spacing: -0.04em; line-height: 1; }
+    .apr-display .apr-label { font-size: 0.82rem; color: #666; margin-top: 6px; }
+
+    .examples { margin-bottom: 48px; }
+    .examples h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 20px; letter-spacing: -0.02em; }
+    .example-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .example-card {
+      background: #111; border: 1px solid #1e1e1e; border-radius: 12px; padding: 20px;
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .example-card:hover { border-color: #f0b42944; }
+    .example-coin { font-weight: 700; color: #fff; font-size: 1rem; margin-bottom: 4px; }
+    .example-exch { font-size: 0.78rem; color: #555; margin-bottom: 10px; }
+    .example-apr { color: #f0b429; font-weight: 800; font-size: 1.4rem; letter-spacing: -0.02em; }
+    .example-note { font-size: 0.78rem; color: #444; margin-top: 4px; }
+
+    .explainer { background: #111; border: 1px solid #1e1e1e; border-radius: 16px; padding: 32px; margin-bottom: 48px; }
+    .explainer h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 20px; letter-spacing: -0.02em; }
+    .explainer p { color: #666; font-size: 0.9rem; line-height: 1.75; margin-bottom: 14px; }
+    .explainer p:last-child { margin-bottom: 0; }
+    .explainer strong { color: #ccc; }
+
+    .cta-box {
+      background: #0d0d0d; border: 1px solid #f0b42933; border-radius: 16px;
+      padding: 36px; text-align: center;
+    }
+    .cta-box h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 10px; }
+    .cta-box p { color: #666; margin-bottom: 24px; font-size: 0.95rem; }
+    .btn-primary {
+      background: #f0b429; color: #000; font-weight: 800; font-size: 1rem;
+      padding: 15px 36px; border-radius: 10px; text-decoration: none; display: inline-block;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    footer { text-align: center; padding: 32px; color: #333; font-size: 0.82rem; border-top: 1px solid #141414; }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="index.html" class="logo">⚡ CarryFi</a>
+  <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="nav-cta">Get Alerts →</a>
+</nav>
+
+<div class="page">
+  <p class="page-label">Free Tool</p>
+  <h1>Funding Rate APR Calculator</h1>
+  <p class="desc">Enter your capital and the funding rate to instantly see your daily, monthly, and annual carry trade yield. Works for Hyperliquid (1h funding), OKX and Gate.io (8h funding).</p>
+
+  <!-- Live examples -->
+  <div class="examples">
+    <h2>Click a live opportunity to load it</h2>
+    <div class="example-grid">
+      <div class="example-card" onclick="loadExample(10000, 0.01266, 1)">
+        <div class="example-coin">XMR</div>
+        <div class="example-exch">Hyperliquid · 1h funding</div>
+        <div class="example-apr">110.9% APR</div>
+        <div class="example-note">0.01266%/h</div>
+      </div>
+      <div class="example-card" onclick="loadExample(10000, 0.0936, 8)">
+        <div class="example-coin">O</div>
+        <div class="example-exch">OKX · 8h funding</div>
+        <div class="example-apr">102.5% APR</div>
+        <div class="example-note">0.0936%/8h</div>
+      </div>
+      <div class="example-card" onclick="loadExample(10000, 0.0200, 8)">
+        <div class="example-coin">BILL</div>
+        <div class="example-exch">OKX · 8h funding</div>
+        <div class="example-apr">38.6% APR</div>
+        <div class="example-note">0.0200%/8h</div>
+      </div>
+      <div class="example-card" onclick="loadExample(10000, 0.0150, 8)">
+        <div class="example-coin">BEL</div>
+        <div class="example-exch">Gate.io · 8h funding</div>
+        <div class="example-apr">45.2% APR</div>
+        <div class="example-note">0.0150%/8h</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calculator -->
+  <div class="calc-card">
+    <div class="input-grid">
+      <div class="field">
+        <label>Capital ($)</label>
+        <input type="number" id="capital" value="10000" min="100" step="100" oninput="calculate()" />
+      </div>
+      <div class="field">
+        <label>Funding Rate (%)</label>
+        <input type="number" id="rate" value="0.01266" min="0" step="0.001" oninput="calculate()" />
+      </div>
+      <div class="field">
+        <label>Funding Interval</label>
+        <select id="interval" onchange="calculate()">
+          <option value="1">Every 1 hour (Hyperliquid)</option>
+          <option value="4">Every 4 hours</option>
+          <option value="8" selected>Every 8 hours (OKX / Gate.io)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Exchange Fee (% per trade)</label>
+        <input type="number" id="fee" value="0.04" min="0" step="0.01" oninput="calculate()" />
+      </div>
+    </div>
+
+    <div class="apr-display">
+      <div class="apr-num" id="apr-display">—</div>
+      <div class="apr-label">Annualized APR (gross)</div>
+    </div>
+
+    <div class="results">
+      <div class="result-item">
+        <div class="result-label">Daily</div>
+        <div class="result-val" id="daily">—</div>
+        <div class="result-sub" id="daily-sub"></div>
+      </div>
+      <div class="result-item">
+        <div class="result-label">Monthly</div>
+        <div class="result-val" id="monthly">—</div>
+        <div class="result-sub" id="monthly-sub"></div>
+      </div>
+      <div class="result-item">
+        <div class="result-label">Annual</div>
+        <div class="result-val" id="annual">—</div>
+        <div class="result-sub" id="annual-sub"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Explainer -->
+  <div class="explainer">
+    <h2>How the carry trade works</h2>
+    <p>Perpetual futures use a <strong>funding rate</strong> to keep their price anchored to spot. When funding is positive, longs pay shorts. By holding <strong>long spot + short perp</strong> in equal size, you're delta neutral — price moves cancel out — and you collect the funding payment every interval.</p>
+    <p>Example: $10,000 in BTC spot + $10,000 short BTC perp. If funding is 0.01%/h on Hyperliquid, you earn $10,000 × 0.01% = <strong>$1/hour</strong>, or $24/day, $720/month — with no exposure to BTC's price direction.</p>
+    <p>CarryFi monitors 150+ markets 24/7 and alerts you the moment a rate crosses your threshold, so you never miss a window like the ones above.</p>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-box">
+    <h2>Get alerted when these open up</h2>
+    <p>CarryFi watches Hyperliquid, OKX, and Gate.io every 15 minutes and pings you on Telegram the second a high-yield opportunity appears.</p>
+    <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="btn-primary">Start Getting Alerts — $19/mo →</a>
+    <p style="color:#444;font-size:0.8rem;margin-top:12px">7-day money-back guarantee</p>
+  </div>
+</div>
+
+<footer>© 2026 CarryFi · <a href="index.html" style="color:#555">Home</a> · Not financial advice · Carry trades carry exchange and liquidity risk</footer>
+
+<script>
+function fmt(n) {
+  if (n >= 1000) return '$' + (n/1000).toFixed(2) + 'k';
+  return '$' + n.toFixed(2);
+}
+
+function calculate() {
+  const capital = parseFloat(document.getElementById('capital').value) || 0;
+  const rate = parseFloat(document.getElementById('rate').value) || 0;
+  const interval = parseInt(document.getElementById('interval').value);
+  const fee = parseFloat(document.getElementById('fee').value) || 0;
+
+  const periodsPerDay = 24 / interval;
+  const dailyRate = rate * periodsPerDay / 100;
+  const apr = dailyRate * 365 * 100;
+
+  const dailyGross = capital * dailyRate;
+  const monthlyGross = dailyGross * 30;
+  const annualGross = dailyGross * 365;
+
+  // Entry + exit fee cost (2 trades × 2 legs = 4 × fee)
+  const feeCost = capital * (fee / 100) * 4;
+  const breakEvenDays = feeCost / dailyGross;
+
+  document.getElementById('apr-display').textContent = apr.toFixed(1) + '%';
+  document.getElementById('daily').textContent = fmt(dailyGross);
+  document.getElementById('daily-sub').textContent = 'gross yield/day';
+  document.getElementById('monthly').textContent = fmt(monthlyGross);
+  document.getElementById('monthly-sub').textContent = 'gross yield/month';
+  document.getElementById('annual').textContent = fmt(annualGross);
+  document.getElementById('annual-sub').textContent = 'gross yield/year';
+}
+
+function loadExample(capital, rate, interval) {
+  document.getElementById('capital').value = capital;
+  document.getElementById('rate').value = rate;
+  document.getElementById('interval').value = interval;
+  calculate();
+  document.querySelector('.calc-card').scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+
+calculate();
+</script>
+</body>
+</html>

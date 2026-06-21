@@ -12,6 +12,26 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="CarryFi — Funding Rate Farming Alerts" />
   <meta name="twitter:description" content="Earn 20–100%+ APR with zero price risk. Telegram alerts for delta neutral carry trades across Hyperliquid, OKX & Gate.io." />
+  <meta name="keywords" content="funding rate farming, carry trade crypto, hyperliquid funding rate, delta neutral crypto, funding rate alerts, crypto yield, perpetual futures yield" />
+  <link rel="canonical" href="https://ethbtcchainblock-cpu.github.io/carryfi/" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "CarryFi",
+    "applicationCategory": "FinanceApplication",
+    "description": "CarryFi monitors 150+ crypto perpetual futures markets every 15 minutes and sends Telegram alerts when high-yield delta neutral carry trade opportunities appear on Hyperliquid, OKX and Gate.io.",
+    "url": "https://ethbtcchainblock-cpu.github.io/carryfi/",
+    "offers": {
+      "@type": "Offer",
+      "price": "19",
+      "priceCurrency": "USD",
+      "billingDuration": "P1M"
+    },
+    "operatingSystem": "Telegram",
+    "featureList": ["Funding rate alerts", "150+ markets", "Hyperliquid", "OKX", "Gate.io", "Delta neutral signals", "24/7 monitoring"]
+  }
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -38,6 +58,8 @@
     }
     .logo { font-size: 1.3rem; font-weight: 800; color: #f0b429; letter-spacing: -0.02em; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-link { color: #666; font-size: 0.85rem; text-decoration: none; }
+    .nav-link:hover { color: #ccc; }
     .nav-login { color: #666; font-size: 0.85rem; text-decoration: none; }
     .nav-login:hover { color: #ccc; }
     .nav-cta {
@@ -330,6 +352,44 @@
     .faq-q { font-weight: 700; font-size: 0.95rem; margin-bottom: 10px; color: #e5e5e5; }
     .faq-a { color: #666; font-size: 0.9rem; line-height: 1.7; }
 
+    /* Email capture */
+    .email-capture {
+      background: #0d0d0d;
+      border-top: 1px solid #141414;
+      border-bottom: 1px solid #141414;
+      padding: 60px 24px;
+      text-align: center;
+    }
+    .email-capture h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 10px; }
+    .email-capture p { color: #666; font-size: 0.95rem; margin-bottom: 28px; }
+    .email-form { display: flex; gap: 10px; max-width: 460px; margin: 0 auto; flex-wrap: wrap; justify-content: center; }
+    .email-form input {
+      flex: 1;
+      min-width: 220px;
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 10px;
+      padding: 13px 18px;
+      color: #e5e5e5;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .email-form input:focus { border-color: #f0b42966; }
+    .email-form button {
+      background: #f0b429;
+      color: #000;
+      font-weight: 800;
+      font-size: 0.95rem;
+      padding: 13px 24px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .email-form button:hover { opacity: 0.88; }
+    .email-note { color: #444; font-size: 0.78rem; margin-top: 12px; }
+
     /* Footer */
     footer {
       text-align: center;
@@ -351,6 +411,7 @@
 <nav>
   <div class="logo">⚡ CarryFi</div>
   <div class="nav-right">
+    <a href="calculator.html" class="nav-link">Calculator</a>
     <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="nav-cta">Get Alerts →</a>
   </div>
 </nav>
@@ -579,7 +640,22 @@
   </div>
 </section>
 
+<!-- Email capture — free weekly digest -->
+<div class="email-capture">
+  <h2>Free Weekly Funding Rate Digest</h2>
+  <p>Get the top 5 carry trade opportunities every Monday — no subscription required.</p>
+  <form class="email-form" id="digest-form" onsubmit="submitEmail(event)">
+    <input type="email" id="digest-email" placeholder="your@email.com" required />
+    <button type="submit" id="digest-btn">Send Me the Digest</button>
+  </form>
+  <p class="email-note" id="digest-msg">No spam. Unsubscribe anytime. Upgrade to live alerts at $19/mo.</p>
+</div>
+
 <section style="padding: 60px 24px; text-align: center; background: #0d0d0d; border-top: 1px solid #141414;">
+  <!-- Product Hunt badge -->
+  <a href="https://www.producthunt.com/products/carryfi" target="_blank" style="display:inline-block;margin-bottom:32px">
+    <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=carryfi&theme=dark" alt="CarryFi on Product Hunt" style="height:54px;width:auto" onerror="this.style.display='none'" />
+  </a>
   <h2 style="font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px;">Ready to start collecting yield?</h2>
   <p style="color: #666; margin-bottom: 32px; font-size: 1rem;">Join subscribers already farming funding rates across 150+ markets.</p>
   <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="btn-primary" style="display:inline-block">Get Alerts for $19/mo →</a>
@@ -590,5 +666,30 @@
   © 2026 CarryFi · <a href="https://t.me/carryfi_alerts_bot" style="color:#555">Telegram</a> · Not financial advice · Delta neutral strategies carry exchange and liquidity risk
 </footer>
 
+<script>
+async function submitEmail(e) {
+  e.preventDefault();
+  const email = document.getElementById('digest-email').value;
+  const btn = document.getElementById('digest-btn');
+  const msg = document.getElementById('digest-msg');
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('https://carryfi-dashboard.onrender.com/subscribe', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, type: 'digest'})
+    });
+    if (r.ok) {
+      document.getElementById('digest-form').innerHTML = '<p style="color:#4ade80;font-weight:700;font-size:1rem">✓ You\'re on the list! First digest lands Monday.</p>';
+    } else { throw new Error(); }
+  } catch {
+    btn.textContent = 'Send Me the Digest';
+    btn.disabled = false;
+    msg.textContent = 'Something went wrong — try again.';
+    msg.style.color = '#f87171';
+  }
+}
+</script>
 </body>
 </html>
