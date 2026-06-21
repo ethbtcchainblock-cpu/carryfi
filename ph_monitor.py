@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import requests
 from pathlib import Path
 
@@ -12,6 +13,11 @@ CACHE     = Path("ph_comment_cache.json")
 
 GQL = "https://api.producthunt.com/v2/api/graphql"
 HEADERS = {"Authorization": f"Bearer {PH_TOKEN}", "Content-Type": "application/json"}
+
+# Forum threads to monitor (slug → full URL)
+FORUM_THREADS = {
+    "what-s-the-highest-funding-rate-you-ve-ever-seen": "https://www.producthunt.com/p/carryfi/what-s-the-highest-funding-rate-you-ve-ever-seen",
+}
 
 
 def tg(text):
@@ -136,6 +142,55 @@ def auto_reply(comment_body: str) -> str:
     )
 
 
+def scrape_forum_replies(thread_slug: str, thread_url: str, seen: set) -> list:
+    """Scrape a PH forum thread page and return new replies not in seen set."""
+    try:
+        r = requests.get(thread_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+        if r.status_code != 200:
+            return []
+        html = r.text
+        # PH inlines __NEXT_DATA__ JSON which contains all thread comments
+        match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
+        if not match:
+            return []
+        data = json.loads(match.group(1))
+        # Navigate to replies — path varies, search recursively
+        def find_all(obj, key):
+            if isinstance(obj, dict):
+                if key in obj:
+                    yield obj[key]
+                for v in obj.values():
+                    yield from find_all(v, key)
+            elif isinstance(obj, list):
+                for item in obj:
+                    yield from find_all(item, key)
+
+        # Collect comment-like objects: dicts with id + body + user
+        new_replies = []
+        seen_in_page = set()
+        for obj in find_all(data, "replies"):
+            if not isinstance(obj, list):
+                continue
+            for item in obj:
+                if not isinstance(item, dict):
+                    continue
+                cid = str(item.get("id", ""))
+                body = item.get("body", "") or item.get("text", "")
+                user = item.get("user", {}) or {}
+                username = user.get("username", "") or user.get("handle", "")
+                name = user.get("name", username)
+                if not cid or not body or username == OWNER_USERNAME:
+                    continue
+                cache_key = f"forum_{thread_slug}_{cid}"
+                if cache_key not in seen and cid not in seen_in_page:
+                    seen_in_page.add(cid)
+                    new_replies.append({"cache_key": cache_key, "author": name, "username": username, "body": body})
+        return new_replies
+    except Exception as e:
+        print(f"Forum scrape error: {e}")
+        return []
+
+
 def main():
     if not PH_TOKEN:
         print("No PH_TOKEN — skipping PH monitor")
@@ -183,6 +238,22 @@ def main():
 
     cache["seen"] = list(seen)
     cache["post_id"] = post_id
+
+    # Monitor forum thread replies (PH API doesn't expose these — scrape instead)
+    for thread_slug, thread_url in FORUM_THREADS.items():
+        new_replies = scrape_forum_replies(thread_slug, thread_url, seen)
+        for reply in new_replies:
+            seen.add(reply["cache_key"])
+            tg(
+                f"💬 *Forum Reply* from *{reply['author']}* (@{reply['username']}):\n\n"
+                f"_{reply['body']}_\n\n"
+                f"⚠️ *Reply manually* (API can't post to forums):\n"
+                f"🔗 {thread_url}"
+            )
+            print(f"Forum reply from {reply['username']}: {reply['body'][:60]}")
+        if new_replies:
+            cache["seen"] = list(seen)
+
     save_cache(cache)
 
 
