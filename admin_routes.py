@@ -42,6 +42,8 @@ def _requires_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get("admin_ok"):
+            if request.path.startswith("/admin/api/"):
+                return jsonify({"error": "not authenticated"}), 401
             return redirect("/admin/login")
         return f(*args, **kwargs)
     return decorated
@@ -384,20 +386,22 @@ async function loadSubscribers() {
 async function loadExchangeHealth() {
   const el = document.getElementById('exch-body');
   const btn = document.getElementById('btn-health');
-  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Checking all 5 exchanges in parallel...</div>';
+  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Checking all 5 exchanges in parallel... (~5s)</div>';
   btn.disabled = true;
   try {
-    const data = await fetch('/admin/api/exchange-health').then(r=>r.json());
+    const res = await fetch('/admin/api/exchange-health');
+    if (!res.ok) { throw new Error('HTTP ' + res.status + ' — ' + await res.text()); }
+    const data = await res.json();
     el.innerHTML = data.map(e => `
       <div class="exch-row">
         <div class="exch-name">${e.exchange}</div>
         <div class="exch-stat"><span class="badge ${e.status==='ok'?'ok':'error'}">${e.status==='ok'?'✓ Live':'✗ Error'}</span>
-          ${e.error?`<span style="color:var(--red);font-size:0.72rem;margin-left:8px">${e.error.slice(0,40)}</span>`:''}</div>
+          ${e.error?`<span style="color:var(--red);font-size:0.72rem;margin-left:8px">${e.error.slice(0,50)}</span>`:''}</div>
         <div class="exch-num">${e.markets}</div>
         <div class="exch-lat">${e.latency}s</div>
       </div>`).join('');
   } catch(e) {
-    el.innerHTML = '<div class="loading-row" style="color:var(--red)">Error checking exchanges</div>';
+    el.innerHTML = `<div class="loading-row" style="color:var(--red)">Error: ${e.message}</div>`;
   }
   btn.disabled = false;
 }
@@ -406,9 +410,11 @@ async function loadExchangeHealth() {
 async function loadOpportunities() {
   document.getElementById('opp-section').style.display = '';
   const el = document.getElementById('opp-body');
-  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Fetching live opportunities...</div>';
+  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Fetching live opportunities across all 5 exchanges... (~12s)</div>';
   try {
-    const d = await fetch('/admin/api/opportunities').then(r=>r.json());
+    const res = await fetch('/admin/api/opportunities');
+    if (!res.ok) { throw new Error('HTTP ' + res.status + ' — ' + await res.text()); }
+    const d = await res.json();
     const rows = d.opportunities || [];
     if (!rows.length) { el.innerHTML = '<div class="loading-row">No opportunities above 0% APR right now</div>'; return; }
     el.innerHTML = `<table>
@@ -424,7 +430,7 @@ async function loadOpportunities() {
         <td style="color:var(--dim)">${r.next_funding}</td>
       </tr>`).join('')}</tbody>
     </table>`;
-  } catch(e) { el.innerHTML = '<div class="loading-row" style="color:var(--red)">Error loading opportunities</div>'; }
+  } catch(e) { el.innerHTML = `<div class="loading-row" style="color:var(--red)">Error: ${e.message}</div>`; }
 }
 
 // ─── Run Alerts ───────────────────────────────────────────────────────────────
@@ -609,35 +615,38 @@ def register_admin(server):
     @server.route("/admin/api/exchange-health")
     @_requires_admin
     def admin_api_exchange_health():
-        from fetcher import (fetch_hyperliquid, fetch_okx, fetch_gateio,
-                             fetch_bitget, fetch_mexc)
-        fetchers = [
-            ("Hyperliquid", fetch_hyperliquid),
-            ("OKX",         fetch_okx),
-            ("Gate.io",     fetch_gateio),
-            ("BitGet",      fetch_bitget),
-            ("MEXC",        fetch_mexc),
-        ]
-        result_map = {}
+        try:
+            from fetcher import (fetch_hyperliquid, fetch_okx, fetch_gateio,
+                                 fetch_bitget, fetch_mexc)
+            fetchers = [
+                ("Hyperliquid", fetch_hyperliquid),
+                ("OKX",         fetch_okx),
+                ("Gate.io",     fetch_gateio),
+                ("BitGet",      fetch_bitget),
+                ("MEXC",        fetch_mexc),
+            ]
+            result_map = {}
 
-        def _run(name, fn):
-            t0 = time.time()
-            try:
-                rows = fn()
-                return {"exchange": name, "status": "ok",
-                        "markets": len(rows), "latency": round(time.time()-t0, 2)}
-            except Exception as ex:
-                return {"exchange": name, "status": "error", "markets": 0,
-                        "latency": round(time.time()-t0, 2), "error": str(ex)[:80]}
+            def _run(name, fn):
+                t0 = time.time()
+                try:
+                    rows = fn()
+                    return {"exchange": name, "status": "ok",
+                            "markets": len(rows), "latency": round(time.time()-t0, 2)}
+                except Exception as ex:
+                    return {"exchange": name, "status": "error", "markets": 0,
+                            "latency": round(time.time()-t0, 2), "error": str(ex)[:80]}
 
-        with ThreadPoolExecutor(max_workers=5) as pool:
-            futures = {pool.submit(_run, name, fn): name for name, fn in fetchers}
-            for fut in as_completed(futures):
-                r = fut.result()
-                result_map[r["exchange"]] = r
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                futures = {pool.submit(_run, name, fn): name for name, fn in fetchers}
+                for fut in as_completed(futures):
+                    r = fut.result()
+                    result_map[r["exchange"]] = r
 
-        return jsonify([result_map.get(n, {"exchange": n, "status": "error"})
-                        for n, _ in fetchers])
+            return jsonify([result_map.get(n, {"exchange": n, "status": "error"})
+                            for n, _ in fetchers])
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @server.route("/admin/api/opportunities")
     @_requires_admin
