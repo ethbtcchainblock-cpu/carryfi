@@ -79,6 +79,20 @@ def _make_invite():
         return None
 
 
+def _register_tg_webhook():
+    if not TG_TOKEN:
+        return
+    try:
+        import requests as _r
+        _r.post(f"https://api.telegram.org/bot{TG_TOKEN}/setWebhook",
+                json={"url": "https://carryfi-dashboard.onrender.com/telegram"}, timeout=10)
+    except Exception:
+        pass
+
+
+threading.Thread(target=_register_tg_webhook, daemon=True).start()
+
+
 # ── Stripe webhook ──────────────────────────────────────────────────────
 @server.route("/webhook", methods=["GET", "POST"])
 def stripe_webhook():
@@ -129,6 +143,53 @@ def stripe_webhook():
     return jsonify({"ok": True})
 
 
+@server.route("/telegram", methods=["POST"])
+def telegram_update():
+    data = request.json or {}
+    msg = data.get("message", {})
+    chat_id = msg.get("chat", {}).get("id")
+    text = (msg.get("text") or "").strip()
+
+    if not chat_id:
+        return jsonify({"ok": True})
+
+    email = text.lower()
+
+    if not text or text.startswith("/"):
+        _tg(chat_id,
+            "👋 Welcome to CarryFi!\n\n"
+            "Send me the email address you used to pay and I'll send you the private channel invite instantly.")
+        return jsonify({"ok": True})
+
+    if "@" not in email or "." not in email:
+        _tg(chat_id, "That doesn't look like an email. Send me the email you paid with and I'll get you in.")
+        return jsonify({"ok": True})
+
+    db = _load_subs()
+    if email in db and db[email].get("status") == "active":
+        if db[email].get("tg_invited"):
+            _tg(chat_id, "✅ You're already in the channel! Check your Telegram for the previous invite link.")
+            return jsonify({"ok": True})
+        invite = _make_invite() if TG_CHANNEL else None
+        if invite:
+            db[email]["tg_invited"] = True
+            _save_subs(db)
+            _tg(chat_id,
+                f"✅ *You're in!* Here's your private channel invite:\n{invite}\n\n"
+                "_This link works once — tap it now to join._")
+            if TG_ADMIN:
+                _tg(TG_ADMIN, f"✅ Auto-invited `{email}` to the channel.")
+        else:
+            _tg(chat_id, "✅ Confirmed! There's a small issue generating your link — we'll send it to you within minutes.")
+    else:
+        _tg(chat_id,
+            "❌ That email isn't in our subscriber list.\n\n"
+            "Make sure you used the same email you paid with. "
+            "If you think this is a mistake, reply here and we'll sort it out.")
+
+    return jsonify({"ok": True})
+
+
 @server.route("/health")
 def health():
     return jsonify({"status": "ok", "subscribers": len(_load_subs()), "stripe": bool(STRIPE_SECRET and STRIPE_OK)})
@@ -152,10 +213,11 @@ def success():
 <body><div class="card">
   <h1>⚡ You're in!</h1>
   <p>Payment confirmed. One last step to get your Telegram alerts:</p>
-  <div class="step"><strong>1.</strong> Message <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a> on Telegram with your email address</div>
-  <div class="step"><strong>2.</strong> We'll send you the private channel invite within minutes</div>
-  <div class="step"><strong>3.</strong> Alerts fire every 15 minutes, 24/7</div>
-  <p style="margin-top:24px;font-size:0.85rem">Questions? Telegram: <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a></p>
+  <div class="step"><strong>1.</strong> Open Telegram and message <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a></div>
+  <div class="step"><strong>2.</strong> Send it your email address (the one you paid with)</div>
+  <div class="step"><strong>3.</strong> The bot instantly sends you the private channel invite link</div>
+  <div class="step"><strong>4.</strong> Join the channel — alerts fire every 15 minutes, 24/7</div>
+  <p style="margin-top:24px;font-size:0.85rem">Issues? Reply to the bot and we'll fix it.</p>
 </div></body></html>"""
 
 APR_THRESHOLD = float(os.getenv("APR_ALERT_THRESHOLD", "20"))
