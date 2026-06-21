@@ -1,9 +1,9 @@
-name: CarryFi Alerts
+name: CarryFi Alerts + Keep-Alive
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # every 15 minutes, 24/7, free on public repos
-  workflow_dispatch:         # manual trigger from GitHub UI
+    - cron: '*/15 * * * *'   # every 15 min — alerts + keep Render awake
+  workflow_dispatch:
 
 jobs:
   alert:
@@ -30,5 +30,9 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
-          APR_ALERT_THRESHOLD: ${{ vars.APR_ALERT_THRESHOLD }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          APR_ALERT_THRESHOLD: ${{ vars.APR_ALERT_THRESHOLD || '20' }}
         run: python alert_runner.py
+
+      - name: Keep Render awake
+        run: curl -sf https://carryfi-dashboard.onrender.com/health > /dev/null || true
