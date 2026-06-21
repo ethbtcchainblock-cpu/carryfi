@@ -390,38 +390,27 @@ async function loadSubscribers() {
 }
 
 // ─── Exchange Health ──────────────────────────────────────────────────────────
-let _healthPoll = null;
 async function loadExchangeHealth() {
   const el = document.getElementById('exch-body');
   const btn = document.getElementById('btn-health');
-  if (_healthPoll) { clearInterval(_healthPoll); _healthPoll = null; }
-  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Fetching exchange data in background...</div>';
+  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Pinging all 5 exchanges... (~5s)</div>';
   btn.disabled = true;
-  async function _poll() {
-    try {
-      const res = await fetch('/admin/api/exchange-health');
-      if (!res.ok) { throw new Error('HTTP ' + res.status); }
-      const d = await res.json();
-      if (d.status === 'loading') return; // still running, keep polling
-      clearInterval(_healthPoll); _healthPoll = null;
-      btn.disabled = false;
-      const age = d.age ? `<span style="color:var(--dim);font-size:0.7rem;margin-left:8px">${d.age}s ago</span>` : '';
-      el.innerHTML = (d.data||[]).map(e => `
-        <div class="exch-row">
-          <div class="exch-name">${e.exchange}</div>
-          <div class="exch-stat"><span class="badge ${e.status==='ok'?'ok':'error'}">${e.status==='ok'?'✓ Live':'✗ Error'}</span>
-            ${e.error?`<span style="color:var(--red);font-size:0.72rem;margin-left:8px">${e.error.slice(0,50)}</span>`:''}</div>
-          <div class="exch-num">${e.markets}</div>
-          <div class="exch-lat">${e.latency}s</div>
-        </div>`).join('') + age;
-    } catch(e) {
-      clearInterval(_healthPoll); _healthPoll = null;
-      btn.disabled = false;
-      el.innerHTML = `<div class="loading-row" style="color:var(--red)">Error: ${e.message}</div>`;
-    }
+  try {
+    const res = await fetch('/admin/api/exchange-health');
+    if (!res.ok) { throw new Error('HTTP ' + res.status + ' — ' + await res.text()); }
+    const d = await res.json();
+    el.innerHTML = (d.data||[]).map(e => `
+      <div class="exch-row">
+        <div class="exch-name">${e.exchange}</div>
+        <div class="exch-stat"><span class="badge ${e.status==='ok'?'ok':'error'}">${e.status==='ok'?'✓ Live':'✗ Down'}</span>
+          ${e.error?`<span style="color:var(--red);font-size:0.72rem;margin-left:8px">${e.error.slice(0,50)}</span>`:''}</div>
+        <div class="exch-num" style="font-size:0.78rem;color:var(--dim)">${e.markets}</div>
+        <div class="exch-lat">${e.latency}s</div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="loading-row" style="color:var(--red)">Error: ${e.message}</div>`;
   }
-  _poll();
-  _healthPoll = setInterval(_poll, 3000);
+  btn.disabled = false;
 }
 
 // ─── Opportunities ────────────────────────────────────────────────────────────
@@ -652,49 +641,42 @@ def register_admin(server):
             return jsonify({"subscribers": [], "error": str(e)})
         return jsonify({"subscribers": subs})
 
+    # Lightweight ping targets — just checks reachability, no full market fetch
+    _HEALTH_PINGS = [
+        ("Hyperliquid", "POST", "https://api.hyperliquid.xyz/info",       {"type": "meta"}),
+        ("OKX",         "GET",  "https://www.okx.com/api/v5/system/status", None),
+        ("Gate.io",     "GET",  "https://api.gateio.ws/api/v4/futures/usdt/tickers?limit=1", None),
+        ("BitGet",      "GET",  "https://api.bitget.com/api/v2/spot/public/time", None),
+        ("MEXC",        "GET",  "https://contract.mexc.com/api/v1/contract/ping", None),
+    ]
+
     @server.route("/admin/api/exchange-health")
     @_requires_admin
     def admin_api_exchange_health():
-        c = _bg_cache["exchange_health"]
-        # Return fresh cache immediately
-        if c["data"] and time.time() - c["ts"] < _CACHE_TTL:
-            return jsonify({"status": "ok", "data": c["data"],
-                            "age": int(time.time() - c["ts"])})
-        if c["loading"]:
-            return jsonify({"status": "loading"})
-        # Trigger background fetch
-        c["loading"] = True
-        c["error"] = None
-        def _fetch():
+        """Fast synchronous ping — checks reachability only, no full fetch. ~5s max."""
+        def _ping(args):
+            name, method, url, body = args
+            t0 = time.time()
             try:
-                from fetcher import (fetch_hyperliquid, fetch_okx, fetch_gateio,
-                                     fetch_bitget, fetch_mexc)
-                named = [("Hyperliquid", fetch_hyperliquid), ("OKX", fetch_okx),
-                         ("Gate.io", fetch_gateio), ("BitGet", fetch_bitget),
-                         ("MEXC", fetch_mexc)]
-                result_map = {}
-                def _run(pair):
-                    name, fn = pair
-                    t0 = time.time()
-                    try:
-                        rows = fn()
-                        return {"exchange": name, "status": "ok",
-                                "markets": len(rows), "latency": round(time.time()-t0, 2)}
-                    except Exception as ex:
-                        return {"exchange": name, "status": "error", "markets": 0,
-                                "latency": round(time.time()-t0, 2), "error": str(ex)[:80]}
-                with ThreadPoolExecutor(max_workers=5) as pool:
-                    for r in pool.map(_run, named):
-                        result_map[r["exchange"]] = r
-                c["data"] = [result_map.get(n, {"exchange": n, "status": "error"})
-                             for n, _ in named]
-                c["ts"] = time.time()
+                if method == "POST":
+                    r = req.post(url, json=body, headers={"User-Agent": "CarryFi/1.0"}, timeout=5)
+                else:
+                    r = req.get(url, headers={"User-Agent": "CarryFi/1.0"}, timeout=5)
+                ok = r.status_code < 500
+                return {"exchange": name, "status": "ok" if ok else "error",
+                        "latency": round(time.time()-t0, 2), "markets": "—",
+                        "http": r.status_code}
             except Exception as e:
-                c["error"] = str(e)
-            finally:
-                c["loading"] = False
-        threading.Thread(target=_fetch, daemon=True).start()
-        return jsonify({"status": "loading"})
+                return {"exchange": name, "status": "error",
+                        "latency": round(time.time()-t0, 2), "markets": 0,
+                        "error": str(e)[:60]}
+
+        try:
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                results = list(pool.map(_ping, _HEALTH_PINGS))
+            return jsonify({"status": "ok", "data": results})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @server.route("/admin/api/opportunities")
     @_requires_admin
