@@ -3,10 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CarryFi — Funding Rate Farming Alerts</title>
+  <title>CarryFi — Earn 20–100%+ APR with Zero Price Risk | Funding Rate Alerts</title>
+  <meta name="description" content="CarryFi sends Telegram alerts the moment high-yield funding rate opportunities open on Hyperliquid, OKX, and Gate.io. Delta neutral. Zero price risk. $19/mo." />
+  <meta property="og:title" content="CarryFi — Earn 20–100%+ APR with Zero Price Risk" />
+  <meta property="og:description" content="Get Telegram alerts for funding rate farming opportunities across 150+ liquid crypto markets. Delta neutral strategy. No price exposure." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://ethbtcchainblock-cpu.github.io/carryfi/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="CarryFi — Funding Rate Farming Alerts" />
+  <meta name="twitter:description" content="Earn 20–100%+ APR with zero price risk. Telegram alerts for delta neutral carry trades across Hyperliquid, OKX & Gate.io." />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       background: #0a0a0a;
       color: #e5e5e5;
@@ -18,13 +25,21 @@
 
     /* Nav */
     nav {
-      padding: 20px 40px;
+      padding: 18px 40px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid #1a1a1a;
+      position: sticky;
+      top: 0;
+      background: #0a0a0aee;
+      backdrop-filter: blur(12px);
+      z-index: 100;
     }
     .logo { font-size: 1.3rem; font-weight: 800; color: #f0b429; letter-spacing: -0.02em; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-login { color: #666; font-size: 0.85rem; text-decoration: none; }
+    .nav-login:hover { color: #ccc; }
     .nav-cta {
       background: #f0b429;
       color: #000;
@@ -47,7 +62,6 @@
       text-align: center;
       padding: 80px 24px 60px;
     }
-
     .badge {
       display: inline-flex;
       align-items: center;
@@ -63,7 +77,6 @@
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
-
     h1 {
       font-size: clamp(2.4rem, 6vw, 4.2rem);
       font-weight: 800;
@@ -73,7 +86,6 @@
       margin-bottom: 22px;
     }
     h1 span { color: #f0b429; }
-
     .sub {
       font-size: clamp(1rem, 2vw, 1.2rem);
       color: #888;
@@ -81,9 +93,7 @@
       line-height: 1.65;
       margin-bottom: 44px;
     }
-
     .cta-group { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
-
     .btn-primary {
       background: #f0b429;
       color: #000;
@@ -95,7 +105,6 @@
       transition: transform 0.15s, opacity 0.15s;
     }
     .btn-primary:hover { transform: translateY(-1px); opacity: 0.9; }
-
     .btn-secondary {
       background: transparent;
       color: #888;
@@ -109,7 +118,20 @@
     }
     .btn-secondary:hover { border-color: #444; color: #ccc; }
 
-    /* Live ticker */
+    /* Social proof strip */
+    .proof-strip {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin-top: 48px;
+      padding: 24px 24px 0;
+    }
+    .proof-item { text-align: center; }
+    .proof-num { font-size: 1.8rem; font-weight: 800; color: #f0b429; letter-spacing: -0.03em; }
+    .proof-label { font-size: 0.78rem; color: #555; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* Ticker */
     .ticker-wrap {
       width: 100%;
       overflow: hidden;
@@ -137,7 +159,7 @@
     .tick-item .apr { color: #f0b429; font-weight: 700; }
     @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
-    /* How it works */
+    /* Section */
     .section { padding: 80px 24px; max-width: 1000px; margin: 0 auto; width: 100%; }
     .section-label {
       font-size: 0.75rem;
@@ -156,6 +178,7 @@
       margin-bottom: 60px;
     }
 
+    /* Steps */
     .steps {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -179,52 +202,6 @@
     .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
     .step p { font-size: 0.88rem; color: #666; line-height: 1.6; }
 
-    /* Pricing */
-    .pricing-card {
-      background: #111;
-      border: 1px solid #f0b42944;
-      border-radius: 20px;
-      padding: 48px;
-      max-width: 440px;
-      margin: 0 auto;
-      text-align: center;
-    }
-    .pricing-card .price {
-      font-size: 3.6rem;
-      font-weight: 800;
-      color: #f0b429;
-      letter-spacing: -0.04em;
-      line-height: 1;
-      margin: 20px 0 6px;
-    }
-    .pricing-card .per { color: #555; font-size: 0.9rem; margin-bottom: 32px; }
-    .features { list-style: none; text-align: left; margin-bottom: 36px; }
-    .features li {
-      padding: 10px 0;
-      border-bottom: 1px solid #1a1a1a;
-      font-size: 0.92rem;
-      color: #ccc;
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
-    }
-    .features li:last-child { border-bottom: none; }
-    .features li::before { content: "✓"; color: #f0b429; font-weight: 700; flex-shrink: 0; }
-
-    .btn-full {
-      display: block;
-      width: 100%;
-      background: #f0b429;
-      color: #000;
-      font-weight: 800;
-      font-size: 1rem;
-      padding: 16px;
-      border-radius: 10px;
-      text-decoration: none;
-      transition: opacity 0.15s;
-    }
-    .btn-full:hover { opacity: 0.88; }
-
     /* Alert preview */
     .alert-preview {
       background: #111;
@@ -244,6 +221,104 @@
     .alert-preview .strat { color: #4ade80; font-size: 0.82rem; margin-top: 4px; }
     .alert-preview .footer { color: #444; font-size: 0.78rem; margin-top: 14px; font-style: italic; }
 
+    /* Pricing */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .pricing-card {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 20px;
+      padding: 36px;
+      text-align: center;
+    }
+    .pricing-card.featured {
+      border-color: #f0b42944;
+      position: relative;
+    }
+    .featured-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #f0b429;
+      color: #000;
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 100px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .pricing-card .price {
+      font-size: 3rem;
+      font-weight: 800;
+      color: #f0b429;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin: 16px 0 4px;
+    }
+    .pricing-card .per { color: #555; font-size: 0.9rem; margin-bottom: 28px; }
+    .features { list-style: none; text-align: left; margin-bottom: 28px; }
+    .features li {
+      padding: 9px 0;
+      border-bottom: 1px solid #1a1a1a;
+      font-size: 0.9rem;
+      color: #ccc;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .features li:last-child { border-bottom: none; }
+    .features li::before { content: "✓"; color: #f0b429; font-weight: 700; flex-shrink: 0; }
+    .btn-full {
+      display: block;
+      width: 100%;
+      background: #f0b429;
+      color: #000;
+      font-weight: 800;
+      font-size: 1rem;
+      padding: 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .btn-full:hover { opacity: 0.88; }
+    .btn-outline {
+      display: block;
+      width: 100%;
+      background: transparent;
+      color: #888;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      border: 1px solid #333;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-outline:hover { border-color: #555; color: #ccc; }
+
+    /* Guarantee */
+    .guarantee {
+      text-align: center;
+      margin-top: 32px;
+      color: #555;
+      font-size: 0.85rem;
+    }
+    .guarantee strong { color: #888; }
+
+    /* FAQ */
+    .faq { max-width: 680px; margin: 0 auto; }
+    .faq-item { border-bottom: 1px solid #1a1a1a; padding: 20px 0; }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-q { font-weight: 700; font-size: 0.95rem; margin-bottom: 10px; color: #e5e5e5; }
+    .faq-a { color: #666; font-size: 0.9rem; line-height: 1.7; }
+
     /* Footer */
     footer {
       text-align: center;
@@ -252,22 +327,49 @@
       font-size: 0.82rem;
       border-top: 1px solid #141414;
     }
+
+    @media (max-width: 600px) {
+      nav { padding: 16px 20px; }
+      .hero { padding: 60px 20px 40px; }
+      .proof-strip { gap: 20px; }
+    }
   </style>
 </head>
 <body>
 
 <nav>
   <div class="logo">⚡ CarryFi</div>
-  <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00?success_url=https://carryfi-dashboard.onrender.com/success" class="nav-cta">Get Alerts →</a>
+  <div class="nav-right">
+    <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="nav-cta">Get Alerts →</a>
+  </div>
 </nav>
 
 <section class="hero">
   <div class="badge">⚡ Live alerts · 3 exchanges · 150+ markets</div>
-  <h1>Earn passive yield<br/>with <span>zero price risk</span></h1>
-  <p class="sub">CarryFi monitors funding rates across Hyperliquid, OKX, and Gate.io 24/7 — and texts you on Telegram the moment a high-yield carry trade opens up.</p>
+  <h1>Earn <span>20–100%+ APR</span><br/>with zero price risk</h1>
+  <p class="sub">CarryFi monitors funding rates across Hyperliquid, OKX, and Gate.io 24/7 — and pings you on Telegram the moment a high-yield carry trade opens up.</p>
   <div class="cta-group">
     <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="btn-primary">Start Getting Alerts — $19/mo</a>
-    <a href="#how" class="btn-secondary">How it works</a>
+    <a href="#how" class="btn-secondary">See how it works</a>
+  </div>
+
+  <div class="proof-strip">
+    <div class="proof-item">
+      <div class="proof-num">150+</div>
+      <div class="proof-label">Liquid markets tracked</div>
+    </div>
+    <div class="proof-item">
+      <div class="proof-num">3</div>
+      <div class="proof-label">Top exchanges</div>
+    </div>
+    <div class="proof-item">
+      <div class="proof-num">15 min</div>
+      <div class="proof-label">Alert frequency</div>
+    </div>
+    <div class="proof-item">
+      <div class="proof-num">24/7</div>
+      <div class="proof-label">Always watching</div>
+    </div>
   </div>
 </section>
 
@@ -282,7 +384,6 @@
     <div class="tick-item"><strong>BEL</strong> · Gate.io <span class="apr">45.2% APR</span></div>
     <div class="tick-item"><strong>UP</strong> · OKX <span class="apr">29.5% APR</span></div>
     <div class="tick-item"><strong>AVAX</strong> · Hyperliquid <span class="apr">10.95% APR</span></div>
-    <!-- repeat for seamless loop -->
     <div class="tick-item"><strong>XMR</strong> · Hyperliquid <span class="apr">110.9% APR</span></div>
     <div class="tick-item"><strong>O</strong> · OKX <span class="apr">102.5% APR</span></div>
     <div class="tick-item"><strong>BILL</strong> · OKX <span class="apr">38.6% APR</span></div>
@@ -306,18 +407,18 @@
     </div>
     <div class="step">
       <div class="step-num">2</div>
-      <h3>You get a Telegram alert</h3>
-      <p>The moment a liquid market crosses your APR threshold, we ping you with the coin, exchange, rate, and exact strategy.</p>
+      <h3>You get a Telegram alert instantly</h3>
+      <p>The moment a liquid market crosses your APR threshold, you get pinged with the coin, exchange, rate, and exact steps.</p>
     </div>
     <div class="step">
       <div class="step-num">3</div>
       <h3>Long spot + short perp</h3>
-      <p>Buy the coin on spot. Short the same amount on the perpetual. You're delta neutral — no price exposure. Collect funding every 1–8 hours.</p>
+      <p>Buy the coin on spot. Short the same size on the perpetual. You're delta neutral — no price exposure. Collect funding every 1–8 hours.</p>
     </div>
     <div class="step">
       <div class="step-num">4</div>
       <h3>Pocket the yield</h3>
-      <p>Funding payments hit your account automatically. When the rate drops below your threshold, CarryFi alerts you to exit.</p>
+      <p>Funding hits your account automatically. When the rate drops below your threshold, CarryFi alerts you to exit.</p>
     </div>
   </div>
 </section>
@@ -348,24 +449,70 @@
 <section class="section" id="pricing">
   <p class="section-label">Pricing</p>
   <h2>Simple, no BS.</h2>
-  <div class="pricing-card">
-    <div style="font-size:0.85rem;color:#666;font-weight:600">CarryFi Pro</div>
-    <div class="price">$19</div>
-    <div class="per">per month · cancel anytime</div>
-    <ul class="features">
-      <li>Telegram alerts every 15 minutes, 24/7</li>
-      <li>150+ liquid markets — Hyperliquid, OKX, Gate.io</li>
-      <li>Filtered by volume & open interest (no micro-cap noise)</li>
-      <li>APR threshold you can customize</li>
-      <li>Entry + exit signals</li>
-      <li>Delta neutral strategy guide included</li>
-    </ul>
-    <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="btn-full">Get Alerts Now →</a>
+  <div class="pricing-grid">
+    <div class="pricing-card featured">
+      <div class="featured-badge">Most Popular</div>
+      <div style="font-size:0.85rem;color:#666;font-weight:600">CarryFi Pro</div>
+      <div class="price">$19</div>
+      <div class="per">per month · cancel anytime</div>
+      <ul class="features">
+        <li>Telegram alerts every 15 minutes, 24/7</li>
+        <li>150+ liquid markets — Hyperliquid, OKX, Gate.io</li>
+        <li>Filtered by volume &amp; open interest</li>
+        <li>APR threshold alerts (default 20%)</li>
+        <li>Entry + exit signals</li>
+        <li>Delta neutral strategy guide</li>
+        <li>Private subscriber channel access</li>
+      </ul>
+      <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="btn-full">Get Alerts Now →</a>
+    </div>
+  </div>
+  <div class="guarantee">
+    <strong>7-day money-back guarantee.</strong> If it's not for you, email us and we'll refund — no questions asked.
   </div>
 </section>
 
+<!-- FAQ -->
+<section class="section" id="faq">
+  <p class="section-label">FAQ</p>
+  <h2>Common questions</h2>
+  <div class="faq">
+    <div class="faq-item">
+      <div class="faq-q">What is funding rate farming?</div>
+      <div class="faq-a">Perpetual futures use a funding rate mechanism to keep prices anchored to spot. When funding is positive, shorts receive payment from longs. By holding spot and shorting the perp simultaneously, you collect this yield with zero net price exposure.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Is this really zero risk?</div>
+      <div class="faq-a">Price risk is eliminated by the hedge. Remaining risks include exchange counterparty risk, liquidity risk when unwinding, and funding rate reversal. CarryFi only surfaces markets with >$5M daily volume and >$1M open interest to minimize these.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How much capital do I need?</div>
+      <div class="faq-a">You can start with as little as $500–$1,000. Larger capital naturally earns more — a $10K position at 50% APR earns ~$417/month in funding alone.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Which exchanges do you support?</div>
+      <div class="faq-a">Hyperliquid, OKX, and Gate.io — three of the highest-volume perpetual futures venues with the best funding rate opportunities.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I get my alerts?</div>
+      <div class="faq-a">After subscribing, message @carryfi_alerts_bot on Telegram with your email. You'll instantly receive a private channel invite where all alerts are posted 24/7.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Can I cancel anytime?</div>
+      <div class="faq-a">Yes. Cancel directly from your Stripe billing portal — no forms, no friction, immediate cancellation.</div>
+    </div>
+  </div>
+</section>
+
+<section style="padding: 60px 24px; text-align: center; background: #0d0d0d; border-top: 1px solid #141414;">
+  <h2 style="font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px;">Ready to start collecting yield?</h2>
+  <p style="color: #666; margin-bottom: 32px; font-size: 1rem;">Join subscribers already farming funding rates across 150+ markets.</p>
+  <a href="https://buy.stripe.com/7sY4gAbkx4sg42Z1h24ZG00" class="btn-primary" style="display:inline-block">Get Alerts for $19/mo →</a>
+  <p style="color: #444; font-size: 0.82rem; margin-top: 16px;">7-day money-back guarantee · Cancel anytime</p>
+</section>
+
 <footer>
-  © 2026 CarryFi · Not financial advice · Delta neutral strategies carry exchange risk
+  © 2026 CarryFi · <a href="https://t.me/carryfi_alerts_bot" style="color:#555">Telegram</a> · Not financial advice · Delta neutral strategies carry exchange and liquidity risk
 </footer>
 
 </body>
