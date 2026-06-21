@@ -1,0 +1,13 @@
+name: Keep Render Warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render health endpoint
+        run: curl -sf --max-time 10 https://carryfi-dashboard.onrender.com/health > /dev/null || true

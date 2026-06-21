@@ -1,8 +1,8 @@
-name: CarryFi Alerts + Keep-Alive
+name: CarryFi Alerts
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # every 15 min — alerts + keep Render awake
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -34,13 +34,6 @@ jobs:
           APR_ALERT_THRESHOLD: ${{ vars.APR_ALERT_THRESHOLD || '20' }}
         run: python alert_runner.py
 
-      - name: Restore PH comment cache
-        uses: actions/cache@v4
-        with:
-          path: ph_comment_cache.json
-          key: carryfi-ph-cache-${{ github.run_id }}
-          restore-keys: carryfi-ph-cache-
-
       - name: Monitor PH comments + auto-reply
         env:
           PH_TOKEN: ${{ secrets.PH_TOKEN }}
@@ -48,6 +41,13 @@ jobs:
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
         run: python ph_monitor.py
 
-      - name: Keep Render awake
-        if: always()
-        run: curl -sf https://carryfi-dashboard.onrender.com/health > /dev/null || true
+      - name: Notify admin on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_ADMIN_CHAT_ID}" \
+            -d "parse_mode=Markdown" \
+            --data-urlencode "text=🚨 CarryFi alert job FAILED. Check: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

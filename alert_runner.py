@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -12,7 +13,7 @@ CACHE_TTL = 4 * 3600  # re-alert after 4h if opportunity still active
 
 TELEGRAM_TOKEN    = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_ADMIN_ID = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "")
-TELEGRAM_CHANNEL  = os.environ.get("TELEGRAM_CHANNEL_ID", "")  # private channel for subscribers
+TELEGRAM_CHANNEL  = os.environ.get("TELEGRAM_CHANNEL_ID", "")
 APR_THRESHOLD     = float(os.environ.get("APR_ALERT_THRESHOLD", "20"))
 
 if not TELEGRAM_TOKEN:
@@ -32,6 +33,19 @@ def save_cache(cache: dict):
     CACHE_FILE.write_text(json.dumps(cache))
 
 
+def tg(chat_id: str, msg: str):
+    if not TELEGRAM_TOKEN or not chat_id:
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+            json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"},
+            timeout=10,
+        )
+    except Exception:
+        pass
+
+
 def send(msg: str):
     targets = []
     if TELEGRAM_CHANNEL:
@@ -39,14 +53,7 @@ def send(msg: str):
     if TELEGRAM_ADMIN_ID and TELEGRAM_ADMIN_ID != TELEGRAM_CHANNEL:
         targets.append(TELEGRAM_ADMIN_ID)
     for chat_id in targets:
-        try:
-            requests.post(
-                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"},
-                timeout=10,
-            )
-        except Exception:
-            pass
+        tg(chat_id, msg)
 
 
 def main():
@@ -86,4 +93,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        err = str(e)[:200]
+        print(f"ALERT RUNNER ERROR: {err}")
+        # Notify admin immediately on crash
+        tg(TELEGRAM_ADMIN_ID, f"🚨 *Alert runner crashed*\n`{err}`\nCheck GitHub Actions logs.")
+        raise

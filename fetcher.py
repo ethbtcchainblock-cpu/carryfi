@@ -1,5 +1,5 @@
 import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait as _wait
 from datetime import datetime, timezone
 
 HEADERS = {"User-Agent": "CarryFi/1.0"}
@@ -122,9 +122,10 @@ def fetch_okx() -> list[dict]:
                 return None
 
         results = []
-        with ThreadPoolExecutor(max_workers=10) as ex:
+        with ThreadPoolExecutor(max_workers=20) as ex:
             futures = {ex.submit(_fetch_rate, inst_id, vol): inst_id for inst_id, vol in liquid}
-            for f in as_completed(futures):
+            done, _ = _wait(futures, timeout=20)  # hard 20s ceiling regardless of queue depth
+            for f in done:
                 row = f.result()
                 if row:
                     results.append(row)
@@ -270,7 +271,19 @@ def fetch_mexc() -> list[dict]:
         return []
 
 
+def _safe(fn):
+    try:
+        return fn()
+    except Exception:
+        return []
+
+
 def fetch_all() -> list[dict]:
-    rows = fetch_hyperliquid() + fetch_okx() + fetch_gateio() + fetch_bitget() + fetch_mexc()
+    """Run all 5 fetchers in parallel — total time ≈ slowest exchange, not sum."""
+    fns = [fetch_hyperliquid, fetch_okx, fetch_gateio, fetch_bitget, fetch_mexc]
+    rows = []
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        for result in pool.map(_safe, fns):
+            rows.extend(result)
     rows.sort(key=lambda x: x["apr"], reverse=True)
     return rows

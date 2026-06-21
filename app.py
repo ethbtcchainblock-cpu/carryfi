@@ -277,6 +277,14 @@ def telegram_update():
 
     email = text.lower()
 
+    # Subscriber: /manage — get billing portal link
+    if text.lower() in ("/manage", "/billing", "/cancel", "/portal"):
+        if "@" not in email:  # they haven't sent an email yet in this session
+            _tg(chat_id,
+                "Send me the email you subscribed with and I'll generate your billing portal link.")
+            return jsonify({"ok": True})
+        # Fall through to email handling below
+
     # Admin command: /invite email@example.com — force-send an invite link
     if text.startswith("/invite ") and str(chat_id) == str(TG_ADMIN):
         target_email = text.split(" ", 1)[1].strip().lower()
@@ -312,7 +320,10 @@ def telegram_update():
             db[email] = {"status": "active"}
             _save_subs(db)
         if db[email].get("tg_invited"):
-            _tg(chat_id, "✅ You're already in the channel! Check your Telegram for the previous invite link.")
+            portal = f"https://carryfi-dashboard.onrender.com/portal?email={email}"
+            _tg(chat_id,
+                f"✅ You're already in the channel!\n\n"
+                f"Need to manage your subscription?\n{portal}")
             return jsonify({"ok": True})
         invite = _make_invite() if TG_CHANNEL else None
         if invite:
