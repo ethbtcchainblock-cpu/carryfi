@@ -48,6 +48,14 @@ if STRIPE_SECRET and STRIPE_OK:
 
 SUBS_FILE = "subscribers.json"
 
+# Load auto-detected channel ID if available
+try:
+    _cfg = json.loads(open("channel_config.json").read())
+    if _cfg.get("TELEGRAM_CHANNEL_ID"):
+        TG_CHANNEL = _cfg["TELEGRAM_CHANNEL_ID"]
+except Exception:
+    pass
+
 
 def _load_subs():
     try:
@@ -145,7 +153,26 @@ def stripe_webhook():
 
 @server.route("/telegram", methods=["POST"])
 def telegram_update():
+    global TG_CHANNEL
     data = request.json or {}
+
+    # Auto-detect channel ID from any channel post
+    channel_post = data.get("channel_post", {})
+    if channel_post:
+        detected_id = str(channel_post.get("chat", {}).get("id", ""))
+        if detected_id and detected_id != TG_CHANNEL:
+            TG_CHANNEL = detected_id
+            cfg = {}
+            try:
+                cfg = json.loads(open("channel_config.json").read())
+            except Exception:
+                pass
+            cfg["TELEGRAM_CHANNEL_ID"] = detected_id
+            open("channel_config.json", "w").write(json.dumps(cfg))
+            if TG_ADMIN:
+                _tg(TG_ADMIN, f"✅ *Channel auto-detected!*\nID: `{detected_id}`\nAlerts will now go to the channel.")
+        return jsonify({"ok": True})
+
     msg = data.get("message", {})
     chat_id = msg.get("chat", {}).get("id")
     text = (msg.get("text") or "").strip()
