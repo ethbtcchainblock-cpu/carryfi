@@ -280,27 +280,267 @@ def health():
 @server.route("/success")
 def success():
     return """<!DOCTYPE html>
-<html><head><title>CarryFi — You're in!</title>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CarryFi — You're In!</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0a0a0a;color:#e5e5e5;font-family:-apple-system,sans-serif;
-       min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
-  .card{background:#111;border:1px solid #f0b42933;border-radius:20px;padding:48px 40px;max-width:480px}
-  h1{font-size:2rem;font-weight:800;color:#f0b429;margin-bottom:12px}
-  p{color:#888;line-height:1.7;margin-bottom:20px}
-  .step{background:#1a1a1a;border-radius:10px;padding:16px 20px;margin-bottom:12px;text-align:left;font-size:0.9rem}
-  .step strong{color:#f0b429}
-  a{color:#f0b429}
-</style></head>
-<body><div class="card">
-  <h1>⚡ You're in!</h1>
-  <p>Payment confirmed. One last step to get your Telegram alerts:</p>
-  <div class="step"><strong>1.</strong> Open Telegram and message <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a></div>
-  <div class="step"><strong>2.</strong> Send it your email address (the one you paid with)</div>
-  <div class="step"><strong>3.</strong> The bot instantly sends you the private channel invite link</div>
-  <div class="step"><strong>4.</strong> Join the channel — alerts fire every 15 minutes, 24/7</div>
-  <p style="margin-top:24px;font-size:0.85rem">Issues? Reply to the bot and we'll fix it.</p>
-</div></body></html>"""
+  body{background:#0a0a0a;color:#e5e5e5;font-family:-apple-system,'Inter',sans-serif;min-height:100vh;padding:0}
+  a{color:#f0b429;text-decoration:none}
+  /* Top bar */
+  .topbar{background:#111;border-bottom:1px solid #1e1e1e;padding:16px 32px;display:flex;align-items:center;gap:10px}
+  .logo{font-size:1.2rem;font-weight:800;color:#f0b429}
+
+  /* Hero */
+  .hero{text-align:center;padding:56px 24px 40px;max-width:640px;margin:0 auto}
+  .badge{display:inline-block;background:#4ade8022;color:#4ade80;border:1px solid #4ade8044;
+         font-size:0.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+         padding:5px 14px;border-radius:20px;margin-bottom:20px}
+  .hero h1{font-size:2.4rem;font-weight:800;letter-spacing:-.03em;margin-bottom:12px}
+  .hero h1 span{color:#f0b429}
+  .hero p{color:#888;line-height:1.7;max-width:480px;margin:0 auto}
+
+  /* Access steps */
+  .access{max-width:560px;margin:40px auto;padding:0 24px}
+  .access-title{font-size:1rem;font-weight:700;color:#ccc;margin-bottom:16px;text-transform:uppercase;letter-spacing:.06em;font-size:.75rem}
+  .step{display:flex;gap:14px;align-items:flex-start;background:#111;border:1px solid #1e1e1e;
+        border-radius:12px;padding:16px 20px;margin-bottom:10px}
+  .step-num{width:28px;height:28px;border-radius:50%;background:#f0b429;color:#000;font-weight:800;
+            font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .step-body h4{font-size:.9rem;font-weight:600;margin-bottom:3px}
+  .step-body p{font-size:.82rem;color:#666;margin:0}
+  .cta-btn{display:block;background:#f0b429;color:#000;font-weight:800;font-size:1rem;
+           text-align:center;padding:16px;border-radius:12px;margin:20px 0;transition:opacity .15s}
+  .cta-btn:hover{opacity:.85}
+
+  /* Divider */
+  .divider{max-width:560px;margin:8px auto 40px;padding:0 24px;display:flex;align-items:center;gap:12px}
+  .divider hr{flex:1;border:none;border-top:1px solid #1e1e1e}
+  .divider span{color:#444;font-size:.8rem;white-space:nowrap}
+
+  /* Tutorial */
+  .tutorial{max-width:760px;margin:0 auto;padding:0 24px 80px}
+  .tutorial-title{font-size:1.4rem;font-weight:800;margin-bottom:8px}
+  .tutorial-sub{color:#666;font-size:.9rem;margin-bottom:32px}
+
+  .section{margin-bottom:32px}
+  .section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .section-num{width:32px;height:32px;border-radius:50%;background:#1e1e1e;color:#f0b429;
+               font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .section-title{font-size:1rem;font-weight:700}
+  .section-sub{font-size:.85rem;color:#666;margin-top:2px}
+
+  .card{background:#111;border:1px solid #1e1e1e;border-radius:14px;padding:22px 24px}
+  .card.gold{border-color:#f0b42933;background:#1a1500}
+  .card.green{border-color:#4ade8033;background:#0d1a0f}
+  .card.red{border-color:#f8717133;background:#1a0d0d}
+
+  /* Alert mock */
+  .tg-bubble{background:#1e2433;border:1px solid #2a3550;border-radius:14px 14px 14px 4px;padding:18px 20px;margin-bottom:12px}
+  .tg-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .tg-icon{width:30px;height:30px;border-radius:50%;background:#f0b429;display:flex;align-items:center;justify-content:center;font-size:.9rem}
+  .tg-name{font-size:.8rem;font-weight:600;color:#7fb3ff}
+  .tg-msg{font-size:.88rem;line-height:1.8;color:#ddd}
+  .tg-msg b{color:#f0b429}
+  .tg-msg code{background:#0d1117;padding:1px 5px;border-radius:4px;font-family:monospace;color:#7fb3ff}
+
+  /* Positions grid */
+  .pos-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+  @media(max-width:600px){.pos-grid{grid-template-columns:1fr}}
+  .pos-card{border-radius:10px;padding:16px 18px}
+  .pos-card.buy{background:#0d1a0f;border:1px solid #4ade8044}
+  .pos-card.sell{background:#1a0d0d;border:1px solid #f8717144}
+  .pos-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .pos-label.g{color:#4ade80}.pos-label.r{color:#f87171}
+  .pos-card h4{font-size:.95rem;font-weight:700;margin-bottom:4px}
+  .pos-card p{font-size:.8rem;color:#888;margin:0}
+
+  /* Math box */
+  .math{background:#0d1117;border:1px solid #1e2433;border-radius:10px;padding:16px 20px;font-family:monospace;line-height:2.2}
+  .math-row{display:flex;justify-content:space-between}
+  .math-row .k{color:#666;font-size:.85rem}.math-row .v{color:#e5e5e5;font-weight:600}
+  .math-row.total .k{color:#ccc}.math-row.total .v{color:#4ade80;font-size:1.1rem;font-weight:800}
+  .math hr{border:none;border-top:1px solid #1e2433;margin:4px 0}
+
+  /* Exit signals */
+  .signal{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:9px;margin-bottom:8px;font-size:.88rem}
+  .signal.ok{background:#0d1a0f;border:1px solid #4ade8033}
+  .signal.warn{background:#1a1500;border:1px solid #f0b42933}
+  .signal.bad{background:#1a0d0d;border:1px solid #f8717133}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .dot.g{background:#4ade80}.dot.y{background:#f0b429}.dot.r{background:#f87171}
+
+  /* Footer note */
+  .footer-note{text-align:center;color:#444;font-size:.8rem;padding:0 24px 60px}
+</style>
+</head><body>
+
+<div class="topbar">
+  <svg width="26" height="26" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="400" rx="80" fill="#0a0a0a"/>
+    <polygon points="218,52 118,202 162,202 140,348 282,182 234,182" fill="#f0b429"/>
+  </svg>
+  <span class="logo">CarryFi</span>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="badge">✓ Payment Confirmed</div>
+  <h1>You're in. Now let's <span>make money.</span></h1>
+  <p>Two minutes to set up your alerts, then sit back and collect funding payments every hour.</p>
+</div>
+
+<!-- Access steps -->
+<div class="access">
+  <div class="access-title">Step 1 — Get your Telegram access</div>
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body"><h4>Open Telegram and message <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a></h4><p>Tap the link above or search @carryfi_alerts_bot</p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body"><h4>Send your email address</h4><p>The exact email you used to pay — this verifies your subscription</p></div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body"><h4>Tap the invite link the bot sends back</h4><p>One-time link — joins you to the private alerts channel instantly</p></div>
+  </div>
+  <a class="cta-btn" href="https://t.me/carryfi_alerts_bot" target="_blank">Open @carryfi_alerts_bot →</a>
+  <p style="font-size:.78rem;color:#444;text-align:center">Takes about 60 seconds. Issues? Reply to the bot.</p>
+</div>
+
+<!-- Divider -->
+<div class="divider"><hr/><span>While you wait — read this once</span><hr/></div>
+
+<!-- Tutorial -->
+<div class="tutorial">
+  <div class="tutorial-title">How to turn an alert into real yield</div>
+  <div class="tutorial-sub">A complete starter guide. No experience needed.</div>
+
+  <!-- Section 1: The alert -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <div><div class="section-title">What the alert looks like</div><div class="section-sub">You'll get this in the CarryFi channel on Telegram</div></div>
+    </div>
+    <div class="tg-bubble">
+      <div class="tg-header"><div class="tg-icon">⚡</div><span class="tg-name">CarryFi Alerts</span></div>
+      <div class="tg-msg">
+        🚨 <b>CarryFi Alert</b><br><br>
+        <b>XMR</b> on <b>Hyperliquid</b><br>
+        Rate: <code>+0.0126% / 1h</code> · APR: <code>110.4%</code><br>
+        Next funding: <code>in 43 min</code><br><br>
+        Strategy: Long spot + Short perp → collect every 1h<br>
+        Delta neutral = no price risk 🟢
+      </div>
+    </div>
+    <div class="card" style="font-size:.85rem;color:#888;line-height:1.8">
+      <b style="color:#ccc">Reading the alert:</b><br>
+      <b style="color:#f0b429">XMR / Hyperliquid</b> — the coin and exchange to trade on<br>
+      <b style="color:#f0b429">110.4% APR</b> — annualized return if you enter now<br>
+      <b style="color:#f0b429">in 43 min</b> — how soon the first funding payment hits your account<br>
+      <b style="color:#f0b429">Long spot + Short perp</b> — the two trades you need to place
+    </div>
+  </div>
+
+  <!-- Section 2: The strategy -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <div><div class="section-title">Why price doesn't matter</div><div class="section-sub">This is called delta neutral — your profit comes from funding, not price</div></div>
+    </div>
+    <div class="pos-grid">
+      <div class="pos-card buy">
+        <div class="pos-label g">Position 1 — Spot</div>
+        <h4>Buy XMR on spot</h4>
+        <p>You own the coin. If price goes up, you profit here.</p>
+      </div>
+      <div class="pos-card sell">
+        <div class="pos-label r">Position 2 — Perp Short</div>
+        <h4>Short XMR perpetual</h4>
+        <p>Same dollar size. If price goes up, you lose here — exactly cancels spot.</p>
+      </div>
+    </div>
+    <div class="card gold" style="margin-top:12px;text-align:center;font-size:.9rem">
+      Net price exposure = <b style="color:#4ade80;font-size:1.05rem">$0.00</b>&nbsp;&nbsp;·&nbsp;&nbsp;You only collect the <b style="color:#f0b429">funding payment</b>
+    </div>
+  </div>
+
+  <!-- Section 3: Execution -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <div><div class="section-title">How to execute in 5 minutes</div><div class="section-sub">Using XMR on Hyperliquid as the example</div></div>
+    </div>
+    <div class="card" style="line-height:2.2;font-size:.88rem;color:#888">
+      <b style="color:#f0b429">Step A — Buy spot:</b><br>
+      Go to Hyperliquid → Spot → XMR → Buy with $X<br>
+      Note exactly how many XMR you received (e.g. 47.2 XMR)<br><br>
+      <b style="color:#f0b429">Step B — Short the perp:</b><br>
+      Go to Hyperliquid → Perp → XMR-PERP → Sell/Short<br>
+      Enter the <b style="color:#ccc">same quantity</b> (47.2 XMR), use 1× leverage, isolated margin<br><br>
+      <b style="color:#4ade80">✓ You are now delta neutral.</b> Funding pays you every 1 hour automatically.
+    </div>
+  </div>
+
+  <!-- Section 4: The math -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <div><div class="section-title">What 110% APR actually pays you</div><div class="section-sub">Real numbers on a $5,000 position</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="math">
+        <div class="math-row"><span class="k">Capital</span><span class="v">$5,000</span></div>
+        <div class="math-row"><span class="k">APR</span><span class="v" style="color:#f0b429">110%</span></div>
+        <hr/>
+        <div class="math-row"><span class="k">Per hour</span><span class="v">≈ $6.28</span></div>
+        <div class="math-row"><span class="k">Per day</span><span class="v">≈ $150</span></div>
+        <div class="math-row total"><span class="k">Per month</span><span class="v">≈ $4,583</span></div>
+      </div>
+      <div class="math">
+        <div class="math-row"><span class="k">Capital</span><span class="v">$5,000</span></div>
+        <div class="math-row"><span class="k">APR</span><span class="v" style="color:#4ade80">30%</span></div>
+        <hr/>
+        <div class="math-row"><span class="k">Per hour</span><span class="v">≈ $1.71</span></div>
+        <div class="math-row"><span class="k">Per day</span><span class="v">≈ $41</span></div>
+        <div class="math-row total"><span class="k">Per month</span><span class="v">≈ $1,250</span></div>
+      </div>
+    </div>
+    <div class="card green" style="margin-top:12px;font-size:.85rem">
+      Even at a modest <b style="color:#4ade80">30% APR</b>, a $5k position returns <b style="color:#4ade80">$1,250/month</b> — that's <b>65× your subscription cost</b> every month.
+    </div>
+  </div>
+
+  <!-- Section 5: Exit -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <div><div class="section-title">When to exit</div><div class="section-sub">Simple rules — check funding rate once a day</div></div>
+    </div>
+    <div class="signal ok"><div class="dot g"></div><span><b>APR above 20%</b> — stay in, keep collecting</span></div>
+    <div class="signal warn"><div class="dot y"></div><span><b>APR between 5–20%</b> — your call based on fees, still profitable</span></div>
+    <div class="signal bad"><div class="dot r"></div><span><b style="color:#f87171">Rate goes negative</b> — EXIT immediately. You'd be paying instead of collecting.</span></div>
+    <div class="card" style="margin-top:12px;font-size:.85rem;color:#888;line-height:2">
+      <b style="color:#ccc">To close:</b> Buy back your short perp → sell your spot position (same size). Net P&L = only the funding you collected.
+    </div>
+  </div>
+
+  <!-- Section 6: Risks -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <div><div class="section-title">Real risks to know</div><div class="section-sub">Price risk is eliminated — here's what actually matters</div></div>
+    </div>
+    <div class="card" style="font-size:.85rem;color:#888;line-height:2.2">
+      <b style="color:#f87171">Funding reversal</b> — the rate flips negative and you start paying. CarryFi alerts you above 20% APR so you know when it's worth entering; exit when it drops below your threshold.<br>
+      <b style="color:#f87171">Exchange counterparty risk</b> — use established venues (Hyperliquid, OKX, Gate.io). Don't put your entire net worth on one exchange.<br>
+      <b style="color:#f87171">Liquidity on exit</b> — CarryFi only surfaces markets above $5M daily volume. Large positions may still experience some slippage when unwinding.
+    </div>
+  </div>
+</div>
+
+<div class="footer-note">Questions? Message <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a> — we reply fast.</div>
+</body></html>"""
 
 APR_THRESHOLD = float(os.getenv("APR_ALERT_THRESHOLD", "20"))
 
