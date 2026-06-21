@@ -515,6 +515,13 @@ setInterval(loadStats, 60000);
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
+def _safe_fetch(fn):
+    try:
+        return fn()
+    except Exception:
+        return []
+
+
 def register_admin(server):
     # Session secret: derive from ADMIN_PASSWORD so it's stable across restarts
     secret = hashlib.sha256(
@@ -651,9 +658,16 @@ def register_admin(server):
     @server.route("/admin/api/opportunities")
     @_requires_admin
     def admin_api_opportunities():
-        from fetcher import fetch_all
         try:
-            rows = [r for r in fetch_all() if r["apr"] > 0][:25]
+            from fetcher import (fetch_hyperliquid, fetch_okx, fetch_gateio,
+                                 fetch_bitget, fetch_mexc)
+            fetchers = [fetch_hyperliquid, fetch_okx, fetch_gateio, fetch_bitget, fetch_mexc]
+            all_rows = []
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                for result in pool.map(_safe_fetch, fetchers):
+                    all_rows.extend(result)
+            all_rows.sort(key=lambda x: x["apr"], reverse=True)
+            rows = [r for r in all_rows if r["apr"] > 0][:25]
             return jsonify({"opportunities": rows})
         except Exception as e:
             return jsonify({"opportunities": [], "error": str(e)})
