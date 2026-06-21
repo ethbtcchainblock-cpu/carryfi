@@ -10,9 +10,10 @@ from fetcher import fetch_all
 CACHE_FILE = Path("alert_cache.json")
 CACHE_TTL = 4 * 3600  # re-alert after 4h if opportunity still active
 
-TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-TELEGRAM_CHAT_ID = os.environ["TELEGRAM_ADMIN_CHAT_ID"]
-APR_THRESHOLD = float(os.environ.get("APR_ALERT_THRESHOLD", "20"))
+TELEGRAM_TOKEN    = os.environ["TELEGRAM_BOT_TOKEN"]
+TELEGRAM_ADMIN_ID = os.environ["TELEGRAM_ADMIN_CHAT_ID"]
+TELEGRAM_CHANNEL  = os.environ.get("TELEGRAM_CHANNEL_ID", "")  # private channel for subscribers
+APR_THRESHOLD     = float(os.environ.get("APR_ALERT_THRESHOLD", "20"))
 
 
 def load_cache() -> dict:
@@ -28,11 +29,20 @@ def save_cache(cache: dict):
 
 
 def send(msg: str):
-    requests.post(
-        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-        json={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"},
-        timeout=10,
-    )
+    targets = []
+    if TELEGRAM_CHANNEL:
+        targets.append(TELEGRAM_CHANNEL)
+    if TELEGRAM_ADMIN_ID and TELEGRAM_ADMIN_ID != TELEGRAM_CHANNEL:
+        targets.append(TELEGRAM_ADMIN_ID)
+    for chat_id in targets:
+        try:
+            requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"},
+                timeout=10,
+            )
+        except Exception:
+            pass
 
 
 def main():

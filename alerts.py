@@ -1,24 +1,32 @@
 import os
 import requests
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
-APR_THRESHOLD = float(os.getenv("APR_ALERT_THRESHOLD", "20"))
+TELEGRAM_TOKEN    = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_ADMIN_ID = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
+TELEGRAM_CHANNEL  = os.getenv("TELEGRAM_CHANNEL_ID", "")   # private channel — subscribers receive here
+APR_THRESHOLD     = float(os.getenv("APR_ALERT_THRESHOLD", "20"))
 
 _alerted: set[str] = set()
 
 
 def _send(msg: str):
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+    """Post alert to subscriber channel (if configured), always notify admin."""
+    if not TELEGRAM_TOKEN:
         return
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-            json={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"},
-            timeout=10,
-        )
-    except Exception:
-        pass
+    targets = []
+    if TELEGRAM_CHANNEL:
+        targets.append(TELEGRAM_CHANNEL)   # paying subscribers
+    if TELEGRAM_ADMIN_ID and TELEGRAM_ADMIN_ID != TELEGRAM_CHANNEL:
+        targets.append(TELEGRAM_ADMIN_ID)  # admin always gets a copy
+    for chat_id in targets:
+        try:
+            requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"},
+                timeout=10,
+            )
+        except Exception:
+            pass
 
 
 def check_and_alert(rows: list[dict]):
