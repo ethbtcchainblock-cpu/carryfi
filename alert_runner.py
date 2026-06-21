@@ -10,10 +10,14 @@ from fetcher import fetch_all
 CACHE_FILE = Path("alert_cache.json")
 CACHE_TTL = 4 * 3600  # re-alert after 4h if opportunity still active
 
-TELEGRAM_TOKEN    = os.environ["TELEGRAM_BOT_TOKEN"]
-TELEGRAM_ADMIN_ID = os.environ["TELEGRAM_ADMIN_CHAT_ID"]
+TELEGRAM_TOKEN    = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_ADMIN_ID = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "")
 TELEGRAM_CHANNEL  = os.environ.get("TELEGRAM_CHANNEL_ID", "")  # private channel for subscribers
 APR_THRESHOLD     = float(os.environ.get("APR_ALERT_THRESHOLD", "20"))
+
+if not TELEGRAM_TOKEN:
+    print("No TELEGRAM_BOT_TOKEN set — skipping alerts")
+    exit(0)
 
 
 def load_cache() -> dict:

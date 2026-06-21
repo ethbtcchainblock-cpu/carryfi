@@ -35,4 +35,5 @@ jobs:
         run: python alert_runner.py
 
       - name: Keep Render awake
+        if: always()
         run: curl -sf https://carryfi-dashboard.onrender.com/health > /dev/null || true
