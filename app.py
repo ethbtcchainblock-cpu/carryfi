@@ -843,6 +843,9 @@ def update(_):
     return stats, table, footer
 
 
+from admin_routes import register_admin
+register_admin(server)
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8050))
     app.run(host="0.0.0.0", port=port, debug=False)

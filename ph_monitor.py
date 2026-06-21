@@ -112,12 +112,12 @@ def auto_reply(comment_body: str) -> str:
             "7-day money-back guarantee if it's not for you."
         )
 
-    if any(w in body for w in ["exchange", "hyperliquid", "okx", "gate", "bybit", "binance", "support"]):
+    if any(w in body for w in ["exchange", "hyperliquid", "okx", "gate", "bybit", "binance", "bitget", "mexc", "support"]):
         return (
-            "Right now we cover Hyperliquid (1h funding — highest frequency), OKX and Gate.io (8h funding). "
-            "These three have the best funding rate opportunities and deepest liquidity. "
-            "Bybit and Binance are on the roadmap — they tend to have more efficient (lower) funding rates, "
-            "but we'll add them when the signal/noise ratio is worth it."
+            "We cover 5 exchanges: Hyperliquid (1h funding — highest frequency), OKX, Gate.io, BitGet, and MEXC (all 8h funding). "
+            "That's 500+ markets monitored 24/7. "
+            "Hyperliquid tends to surface the highest APRs; BitGet and MEXC add hundreds of smaller altcoins with occasional outsized rates. "
+            "Happy to answer any other questions!"
         )
 
     if any(w in body for w in ["telegram", "alert", "notif", "get", "access", "how do i", "setup", "set up"]):

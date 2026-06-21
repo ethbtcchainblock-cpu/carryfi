@@ -34,13 +34,13 @@
   <text x="80" y="350" font-family="-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif" font-weight="800" font-size="72" fill="#ffffff" letter-spacing="-2">with <tspan fill="#f0b429">zero price risk</tspan></text>
 
   <!-- Subline -->
-  <text x="80" y="420" font-family="-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif" font-weight="400" font-size="28" fill="#888">Telegram alerts for funding rate farming · Hyperliquid · OKX · Gate.io</text>
+  <text x="80" y="420" font-family="-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif" font-weight="400" font-size="28" fill="#888">Telegram alerts for funding rate farming · 5 exchanges · 500+ markets</text>
 
   <!-- Stat pills -->
   <!-- Pill 1 -->
   <rect x="80" y="480" width="180" height="56" rx="12" fill="#111" stroke="#1e1e1e" stroke-width="1"/>
   <text x="170" y="502" font-family="-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif" font-size="11" fill="#555" text-anchor="middle" text-transform="uppercase" letter-spacing="1">MARKETS</text>
-  <text x="170" y="526" font-family="-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif" font-weight="800" font-size="22" fill="#f0b429" text-anchor="middle">150+</text>
+  <text x="170" y="526" font-family="-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif" font-weight="800" font-size="22" fill="#f0b429" text-anchor="middle">500+</text>
 
   <!-- Pill 2 -->
   <rect x="276" y="480" width="180" height="56" rx="12" fill="#111" stroke="#1e1e1e" stroke-width="1"/>

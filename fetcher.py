@@ -174,7 +174,103 @@ def fetch_gateio() -> list[dict]:
         return []
 
 
+def _next_8h_funding() -> str:
+    """Next BitGet/MEXC funding slot: 00:00, 08:00, 16:00 UTC."""
+    now = datetime.now(timezone.utc)
+    for h in (0, 8, 16):
+        if now.hour < h:
+            return f"{h:02d}:00 UTC"
+    return "00:00 UTC"
+
+
+def fetch_bitget() -> list[dict]:
+    """BitGet (Bybit-equivalent): 8h funding. usdtVolume = USD vol. OI = holdingAmount × markPrice."""
+    try:
+        r = requests.get(
+            "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES",
+            headers=HEADERS,
+            timeout=10,
+        )
+        r.raise_for_status()
+        next_funding = _next_8h_funding()
+        results = []
+        for item in r.json().get("data", []):
+            symbol = item.get("symbol", "")
+            if not symbol.endswith("USDT"):
+                continue
+            rate_str = item.get("fundingRate")
+            if rate_str is None:
+                continue
+            rate = float(rate_str)
+            if rate == 0:
+                continue
+            vol_usd = float(item.get("usdtVolume") or 0)
+            if vol_usd < MIN_VOLUME_USD:
+                continue
+            mark_px = float(item.get("markPrice") or 0)
+            oi_usd = float(item.get("holdingAmount") or 0) * mark_px
+            if oi_usd < MIN_OI_USD:
+                continue
+            coin = symbol[:-4]  # strip "USDT"
+            results.append({
+                "coin": coin,
+                "exchange": "BitGet",
+                "rate_display": f"{rate*100:.4f}%/8h",
+                "apr": _annualize(rate, 8),
+                "next_funding": next_funding,
+                "volume_24h": _fmt_usd(vol_usd),
+                "open_interest": _fmt_usd(oi_usd),
+                "volume_usd": vol_usd,
+            })
+        return results
+    except Exception:
+        return []
+
+
+def fetch_mexc() -> list[dict]:
+    """MEXC (Binance-equivalent): 8h funding. amount24 = USD vol. holdVol = OI in USD."""
+    try:
+        r = requests.get(
+            "https://contract.mexc.com/api/v1/contract/ticker",
+            headers=HEADERS,
+            timeout=10,
+        )
+        r.raise_for_status()
+        next_funding = _next_8h_funding()
+        results = []
+        for item in r.json().get("data", []):
+            symbol = item.get("symbol", "")
+            if not symbol.endswith("_USDT"):
+                continue
+            rate = item.get("fundingRate")
+            if rate is None:
+                continue
+            rate = float(rate)
+            if rate == 0:
+                continue
+            vol_usd = float(item.get("amount24") or 0)
+            if vol_usd < MIN_VOLUME_USD:
+                continue
+            oi_usd = float(item.get("holdVol") or 0)
+            if oi_usd < MIN_OI_USD:
+                continue
+            coin = symbol[:-5]  # strip "_USDT"
+            results.append({
+                "coin": coin,
+                "exchange": "MEXC",
+                "rate_display": f"{rate*100:.4f}%/8h",
+                "apr": _annualize(rate, 8),
+                "next_funding": next_funding,
+                "volume_24h": _fmt_usd(vol_usd),
+                "open_interest": _fmt_usd(oi_usd),
+                "volume_usd": vol_usd,
+            })
+        return results
+    except Exception:
+        return []
+
+
 def fetch_all() -> list[dict]:
-    rows = fetch_hyperliquid() + fetch_okx() + fetch_gateio()
+    rows = fetch_hyperliquid() + fetch_okx() + fetch_gateio() + fetch_bitget() + fetch_mexc()
     rows.sort(key=lambda x: x["apr"], reverse=True)
     return rows
