@@ -34,6 +34,20 @@ jobs:
           APR_ALERT_THRESHOLD: ${{ vars.APR_ALERT_THRESHOLD || '20' }}
         run: python alert_runner.py
 
+      - name: Restore PH comment cache
+        uses: actions/cache@v4
+        with:
+          path: ph_comment_cache.json
+          key: carryfi-ph-cache-${{ github.run_id }}
+          restore-keys: carryfi-ph-cache-
+
+      - name: Monitor PH comments + auto-reply
+        env:
+          PH_TOKEN: ${{ secrets.PH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: python ph_monitor.py
+
       - name: Keep Render awake
         if: always()
         run: curl -sf https://carryfi-dashboard.onrender.com/health > /dev/null || true
