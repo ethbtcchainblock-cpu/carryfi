@@ -122,13 +122,17 @@ def fetch_okx() -> list[dict]:
                 return None
 
         results = []
-        with ThreadPoolExecutor(max_workers=20) as ex:
-            futures = {ex.submit(_fetch_rate, inst_id, vol): inst_id for inst_id, vol in liquid}
-            done, _ = _wait(futures, timeout=20)  # hard 20s ceiling regardless of queue depth
-            for f in done:
+        ex = ThreadPoolExecutor(max_workers=20)
+        futures = {ex.submit(_fetch_rate, inst_id, vol): inst_id for inst_id, vol in liquid}
+        done, _ = _wait(futures, timeout=20)  # hard 20s ceiling
+        ex.shutdown(wait=False, cancel_futures=True)  # don't block — let remaining threads die
+        for f in done:
+            try:
                 row = f.result()
                 if row:
                     results.append(row)
+            except Exception:
+                pass
         return results
     except Exception:
         return []
