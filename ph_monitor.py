@@ -3,10 +3,11 @@ import json
 import requests
 from pathlib import Path
 
-PH_TOKEN  = os.environ.get("PH_TOKEN", "")
-TG_TOKEN  = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TG_ADMIN  = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "")
-SLUG      = "carryfi"
+PH_TOKEN      = os.environ.get("PH_TOKEN", "")
+TG_TOKEN      = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TG_ADMIN      = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "")
+SLUG          = "carryfi"
+OWNER_USERNAME = "ethbtc_chainblock_z"  # never auto-reply to your own comments
 CACHE     = Path("ph_comment_cache.json")
 
 GQL = "https://api.producthunt.com/v2/api/graphql"
@@ -152,8 +153,10 @@ def main():
     count = post.get("commentsCount", 0)
     comments = [e["node"] for e in post.get("comments", {}).get("edges", [])]
 
-    new = [c for c in comments if c["id"] not in seen]
-    print(f"PH: {count} comments total, {len(new)} new")
+    new = [c for c in comments
+           if c["id"] not in seen
+           and c.get("user", {}).get("username") != OWNER_USERNAME]
+    print(f"PH: {count} comments total, {len(new)} new from others")
 
     for c in new:
         seen.add(c["id"])
