@@ -11,22 +11,9 @@ services:
         sync: false
       - key: TELEGRAM_CHANNEL_ID
         sync: false
-      - key: APR_ALERT_THRESHOLD
-        value: "20"
-
-  - type: web
-    name: carryfi-webhook
-    runtime: python
-    buildCommand: pip install -r requirements.txt stripe
-    startCommand: gunicorn webhook:app -b 0.0.0.0:$PORT
-    envVars:
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_ADMIN_CHAT_ID
-        sync: false
-      - key: TELEGRAM_CHANNEL_ID
-        sync: false
+      - key: APR_ALERT_THRESHOLD
+        value: "20"

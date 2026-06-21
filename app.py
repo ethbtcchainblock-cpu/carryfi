@@ -1,11 +1,14 @@
 import os
+import json
 import threading
 import time
 from datetime import datetime, timezone
 
+import stripe
 import dash
 from dash import dash_table, dcc, html
 from dash.dependencies import Input, Output
+from flask import request, jsonify
 
 from alerts import check_and_alert
 from fetcher import fetch_all
@@ -27,7 +30,100 @@ def refresh_loop():
 threading.Thread(target=refresh_loop, daemon=True).start()
 
 app = dash.Dash(__name__, title="CarryFi — Funding Rate Radar")
-server = app.server
+server = app.server  # Flask instance — we attach webhook routes here
+
+# ── Config ─────────────────────────────────────────────────────────────
+STRIPE_SECRET       = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SEC  = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+TG_TOKEN            = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TG_ADMIN            = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
+TG_CHANNEL          = os.getenv("TELEGRAM_CHANNEL_ID", "")
+if STRIPE_SECRET:
+    stripe.api_key = STRIPE_SECRET
+
+SUBS_FILE = "subscribers.json"
+
+
+def _load_subs():
+    try:
+        return json.loads(open(SUBS_FILE).read())
+    except Exception:
+        return {}
+
+
+def _save_subs(db):
+    open(SUBS_FILE, "w").write(json.dumps(db, indent=2))
+
+
+def _tg(chat_id, text):
+    try:
+        import requests as _r
+        _r.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=10)
+    except Exception:
+        pass
+
+
+def _make_invite():
+    try:
+        import requests as _r
+        r = _r.post(f"https://api.telegram.org/bot{TG_TOKEN}/createChatInviteLink",
+                    json={"chat_id": TG_CHANNEL, "member_limit": 1}, timeout=10).json()
+        return r.get("result", {}).get("invite_link")
+    except Exception:
+        return None
+
+
+# ── Stripe webhook ──────────────────────────────────────────────────────
+@server.route("/webhook", methods=["POST"])
+def stripe_webhook():
+    payload = request.data
+    sig     = request.headers.get("Stripe-Signature", "")
+    try:
+        if STRIPE_WEBHOOK_SEC:
+            event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SEC)
+        else:
+            event = request.json
+    except Exception:
+        return jsonify({"error": "bad signature"}), 400
+
+    etype = event.get("type", "")
+    obj   = event["data"]["object"]
+
+    if etype == "checkout.session.completed":
+        email = obj.get("customer_details", {}).get("email", "unknown")
+        db    = _load_subs()
+        db[email] = {"status": "active", "customer": obj.get("customer", "")}
+        _save_subs(db)
+        invite = _make_invite() if TG_CHANNEL else None
+        msg = f"✅ *New subscriber!*\nEmail: `{email}`"
+        if invite:
+            msg += f"\nInvite link (send this to them):\n{invite}"
+        else:
+            msg += "\n⚠️ No channel configured — set TELEGRAM\\_CHANNEL\\_ID"
+        if TG_ADMIN:
+            _tg(TG_ADMIN, msg)
+
+    elif etype in ("customer.subscription.deleted", "customer.subscription.paused"):
+        customer_id = obj.get("customer", "")
+        try:
+            c     = stripe.Customer.retrieve(customer_id)
+            email = c.get("email", "unknown")
+        except Exception:
+            email = customer_id
+        db = _load_subs()
+        if email in db:
+            db[email]["status"] = "cancelled"
+            _save_subs(db)
+        if TG_ADMIN:
+            _tg(TG_ADMIN, f"❌ *Cancelled:* `{email}`\nRemove from channel manually.")
+
+    return jsonify({"ok": True})
+
+
+@server.route("/health")
+def health():
+    return jsonify({"status": "ok", "subscribers": len(_load_subs())})
 
 APR_THRESHOLD = float(os.getenv("APR_ALERT_THRESHOLD", "20"))
 
