@@ -18,6 +18,13 @@ PRICE_USD      = 19
 
 _last_alert_run: dict = {"time": None, "fired": 0, "error": None}
 
+# Background fetch cache — avoids Render's 30s proxy timeout
+_bg_cache: dict = {
+    "exchange_health": {"data": None, "ts": 0, "loading": False, "error": None},
+    "opportunities":   {"data": None, "ts": 0, "loading": False, "error": None},
+}
+_CACHE_TTL = 300  # 5 minutes
+
 
 def _stripe():
     _stripe_lib.api_key = STRIPE_SECRET
@@ -383,40 +390,51 @@ async function loadSubscribers() {
 }
 
 // ─── Exchange Health ──────────────────────────────────────────────────────────
+let _healthPoll = null;
 async function loadExchangeHealth() {
   const el = document.getElementById('exch-body');
   const btn = document.getElementById('btn-health');
-  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Checking all 5 exchanges in parallel... (~5s)</div>';
+  if (_healthPoll) { clearInterval(_healthPoll); _healthPoll = null; }
+  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Fetching exchange data in background...</div>';
   btn.disabled = true;
-  try {
-    const res = await fetch('/admin/api/exchange-health');
-    if (!res.ok) { throw new Error('HTTP ' + res.status + ' — ' + await res.text()); }
-    const data = await res.json();
-    el.innerHTML = data.map(e => `
-      <div class="exch-row">
-        <div class="exch-name">${e.exchange}</div>
-        <div class="exch-stat"><span class="badge ${e.status==='ok'?'ok':'error'}">${e.status==='ok'?'✓ Live':'✗ Error'}</span>
-          ${e.error?`<span style="color:var(--red);font-size:0.72rem;margin-left:8px">${e.error.slice(0,50)}</span>`:''}</div>
-        <div class="exch-num">${e.markets}</div>
-        <div class="exch-lat">${e.latency}s</div>
-      </div>`).join('');
-  } catch(e) {
-    el.innerHTML = `<div class="loading-row" style="color:var(--red)">Error: ${e.message}</div>`;
+  async function _poll() {
+    try {
+      const res = await fetch('/admin/api/exchange-health');
+      if (!res.ok) { throw new Error('HTTP ' + res.status); }
+      const d = await res.json();
+      if (d.status === 'loading') return; // still running, keep polling
+      clearInterval(_healthPoll); _healthPoll = null;
+      btn.disabled = false;
+      const age = d.age ? `<span style="color:var(--dim);font-size:0.7rem;margin-left:8px">${d.age}s ago</span>` : '';
+      el.innerHTML = (d.data||[]).map(e => `
+        <div class="exch-row">
+          <div class="exch-name">${e.exchange}</div>
+          <div class="exch-stat"><span class="badge ${e.status==='ok'?'ok':'error'}">${e.status==='ok'?'✓ Live':'✗ Error'}</span>
+            ${e.error?`<span style="color:var(--red);font-size:0.72rem;margin-left:8px">${e.error.slice(0,50)}</span>`:''}</div>
+          <div class="exch-num">${e.markets}</div>
+          <div class="exch-lat">${e.latency}s</div>
+        </div>`).join('') + age;
+    } catch(e) {
+      clearInterval(_healthPoll); _healthPoll = null;
+      btn.disabled = false;
+      el.innerHTML = `<div class="loading-row" style="color:var(--red)">Error: ${e.message}</div>`;
+    }
   }
-  btn.disabled = false;
+  _poll();
+  _healthPoll = setInterval(_poll, 3000);
 }
 
 // ─── Opportunities ────────────────────────────────────────────────────────────
+let _oppPoll = null;
 async function loadOpportunities() {
   document.getElementById('opp-section').style.display = '';
   const el = document.getElementById('opp-body');
-  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Fetching live opportunities across all 5 exchanges... (~12s)</div>';
-  try {
-    const res = await fetch('/admin/api/opportunities');
-    if (!res.ok) { throw new Error('HTTP ' + res.status + ' — ' + await res.text()); }
-    const d = await res.json();
+  if (_oppPoll) { clearInterval(_oppPoll); _oppPoll = null; }
+  el.innerHTML = '<div class="loading-row"><span class="loader"></span>Fetching opportunities across 5 exchanges in background...</div>';
+  function _renderOpp(d) {
     const rows = d.opportunities || [];
     if (!rows.length) { el.innerHTML = '<div class="loading-row">No opportunities above 0% APR right now</div>'; return; }
+    const age = d.age ? `<div style="font-size:0.7rem;color:var(--dim);padding:8px 12px">Data from ${d.age}s ago · <a href="#" onclick="loadOpportunities();return false" style="color:var(--gold)">Refresh</a></div>` : '';
     el.innerHTML = `<table>
       <thead><tr><th>#</th><th>Coin</th><th>Exchange</th><th>APR</th><th>Rate</th><th>Volume</th><th>OI</th><th>Next Funding</th></tr></thead>
       <tbody>${rows.map((r,i)=>`<tr>
@@ -429,8 +447,23 @@ async function loadOpportunities() {
         <td>${r.open_interest}</td>
         <td style="color:var(--dim)">${r.next_funding}</td>
       </tr>`).join('')}</tbody>
-    </table>`;
-  } catch(e) { el.innerHTML = `<div class="loading-row" style="color:var(--red)">Error: ${e.message}</div>`; }
+    </table>${age}`;
+  }
+  async function _poll() {
+    try {
+      const res = await fetch('/admin/api/opportunities');
+      if (!res.ok) { throw new Error('HTTP ' + res.status); }
+      const d = await res.json();
+      if (d.status === 'loading') return;
+      clearInterval(_oppPoll); _oppPoll = null;
+      _renderOpp(d);
+    } catch(e) {
+      clearInterval(_oppPoll); _oppPoll = null;
+      el.innerHTML = `<div class="loading-row" style="color:var(--red)">Error: ${e.message}</div>`;
+    }
+  }
+  _poll();
+  _oppPoll = setInterval(_poll, 3000);
 }
 
 // ─── Run Alerts ───────────────────────────────────────────────────────────────
@@ -622,55 +655,76 @@ def register_admin(server):
     @server.route("/admin/api/exchange-health")
     @_requires_admin
     def admin_api_exchange_health():
-        try:
-            from fetcher import (fetch_hyperliquid, fetch_okx, fetch_gateio,
-                                 fetch_bitget, fetch_mexc)
-            fetchers = [
-                ("Hyperliquid", fetch_hyperliquid),
-                ("OKX",         fetch_okx),
-                ("Gate.io",     fetch_gateio),
-                ("BitGet",      fetch_bitget),
-                ("MEXC",        fetch_mexc),
-            ]
-            result_map = {}
-
-            def _run(name, fn):
-                t0 = time.time()
-                try:
-                    rows = fn()
-                    return {"exchange": name, "status": "ok",
-                            "markets": len(rows), "latency": round(time.time()-t0, 2)}
-                except Exception as ex:
-                    return {"exchange": name, "status": "error", "markets": 0,
-                            "latency": round(time.time()-t0, 2), "error": str(ex)[:80]}
-
-            with ThreadPoolExecutor(max_workers=5) as pool:
-                futures = {pool.submit(_run, name, fn): name for name, fn in fetchers}
-                for fut in as_completed(futures):
-                    r = fut.result()
-                    result_map[r["exchange"]] = r
-
-            return jsonify([result_map.get(n, {"exchange": n, "status": "error"})
-                            for n, _ in fetchers])
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+        c = _bg_cache["exchange_health"]
+        # Return fresh cache immediately
+        if c["data"] and time.time() - c["ts"] < _CACHE_TTL:
+            return jsonify({"status": "ok", "data": c["data"],
+                            "age": int(time.time() - c["ts"])})
+        if c["loading"]:
+            return jsonify({"status": "loading"})
+        # Trigger background fetch
+        c["loading"] = True
+        c["error"] = None
+        def _fetch():
+            try:
+                from fetcher import (fetch_hyperliquid, fetch_okx, fetch_gateio,
+                                     fetch_bitget, fetch_mexc)
+                named = [("Hyperliquid", fetch_hyperliquid), ("OKX", fetch_okx),
+                         ("Gate.io", fetch_gateio), ("BitGet", fetch_bitget),
+                         ("MEXC", fetch_mexc)]
+                result_map = {}
+                def _run(pair):
+                    name, fn = pair
+                    t0 = time.time()
+                    try:
+                        rows = fn()
+                        return {"exchange": name, "status": "ok",
+                                "markets": len(rows), "latency": round(time.time()-t0, 2)}
+                    except Exception as ex:
+                        return {"exchange": name, "status": "error", "markets": 0,
+                                "latency": round(time.time()-t0, 2), "error": str(ex)[:80]}
+                with ThreadPoolExecutor(max_workers=5) as pool:
+                    for r in pool.map(_run, named):
+                        result_map[r["exchange"]] = r
+                c["data"] = [result_map.get(n, {"exchange": n, "status": "error"})
+                             for n, _ in named]
+                c["ts"] = time.time()
+            except Exception as e:
+                c["error"] = str(e)
+            finally:
+                c["loading"] = False
+        threading.Thread(target=_fetch, daemon=True).start()
+        return jsonify({"status": "loading"})
 
     @server.route("/admin/api/opportunities")
     @_requires_admin
     def admin_api_opportunities():
-        try:
-            from fetcher import (fetch_hyperliquid, fetch_okx, fetch_gateio,
-                                 fetch_bitget, fetch_mexc)
-            fetchers = [fetch_hyperliquid, fetch_okx, fetch_gateio, fetch_bitget, fetch_mexc]
-            all_rows = []
-            with ThreadPoolExecutor(max_workers=5) as pool:
-                for result in pool.map(_safe_fetch, fetchers):
-                    all_rows.extend(result)
-            all_rows.sort(key=lambda x: x["apr"], reverse=True)
-            rows = [r for r in all_rows if r["apr"] > 0][:25]
-            return jsonify({"opportunities": rows})
-        except Exception as e:
-            return jsonify({"opportunities": [], "error": str(e)})
+        c = _bg_cache["opportunities"]
+        if c["data"] is not None and time.time() - c["ts"] < _CACHE_TTL:
+            return jsonify({"status": "ok", "opportunities": c["data"],
+                            "age": int(time.time() - c["ts"])})
+        if c["loading"]:
+            return jsonify({"status": "loading"})
+        c["loading"] = True
+        c["error"] = None
+        def _fetch():
+            try:
+                from fetcher import (fetch_hyperliquid, fetch_okx, fetch_gateio,
+                                     fetch_bitget, fetch_mexc)
+                fns = [fetch_hyperliquid, fetch_okx, fetch_gateio, fetch_bitget, fetch_mexc]
+                all_rows = []
+                with ThreadPoolExecutor(max_workers=5) as pool:
+                    for result in pool.map(_safe_fetch, fns):
+                        all_rows.extend(result)
+                all_rows.sort(key=lambda x: x["apr"], reverse=True)
+                c["data"] = [r for r in all_rows if r["apr"] > 0][:25]
+                c["ts"] = time.time()
+            except Exception as e:
+                c["error"] = str(e)
+            finally:
+                c["loading"] = False
+        threading.Thread(target=_fetch, daemon=True).start()
+        return jsonify({"status": "loading"})
 
     @server.route("/admin/api/invite", methods=["POST"])
     @_requires_admin
