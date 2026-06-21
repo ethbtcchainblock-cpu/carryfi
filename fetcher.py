@@ -85,12 +85,6 @@ def fetch_okx() -> list[dict]:
             if inst_id.endswith("-USDT-SWAP"):
                 oi_map[inst_id] = float(item.get("oiCcy", 0))
 
-        # Filter to top 40 by volume, then fetch funding rate per coin
-        ranked = sorted(
-            [(k, float(v.get("volCcy24h", 0))) for k, v in ticker_map.items()],
-            key=lambda x: x[1], reverse=True,
-        )[:40]
-
         liquid = [(k, float(v.get("volCcy24h", 0))) for k, v in ticker_map.items()
                   if float(v.get("volCcy24h", 0)) >= MIN_VOLUME_USD]
 
