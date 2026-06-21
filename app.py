@@ -1,8 +1,11 @@
 import os
 import json
+import smtplib
 import threading
 import time
 from datetime import datetime, timezone
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 try:
     import stripe
@@ -13,7 +16,7 @@ except ImportError:
 import dash
 from dash import dash_table, dcc, html
 from dash.dependencies import Input, Output
-from flask import request, jsonify
+from flask import request, jsonify, redirect
 
 from alerts import check_and_alert
 from fetcher import fetch_all
@@ -43,6 +46,8 @@ STRIPE_WEBHOOK_SEC  = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 TG_TOKEN            = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TG_ADMIN            = os.getenv("TELEGRAM_ADMIN_CHAT_ID", "")
 TG_CHANNEL          = os.getenv("TELEGRAM_CHANNEL_ID", "")
+GMAIL_USER          = os.getenv("GMAIL_USER", "ethbtc.chainblock@gmail.com")
+GMAIL_APP_PASSWORD  = os.getenv("GMAIL_APP_PASSWORD", "")
 if STRIPE_SECRET and STRIPE_OK:
     stripe.api_key = STRIPE_SECRET
 
@@ -55,6 +60,94 @@ try:
         TG_CHANNEL = _cfg["TELEGRAM_CHANNEL_ID"]
 except Exception:
     pass
+
+
+def _stripe_is_active(email: str) -> bool:
+    """Check Stripe directly — survives redeploys, no local file needed."""
+    if not STRIPE_SECRET or not STRIPE_OK:
+        return False
+    try:
+        customers = stripe.Customer.list(email=email, limit=5)
+        for c in customers.data:
+            subs = stripe.Subscription.list(customer=c.id, status="active", limit=5)
+            if subs.data:
+                return True
+            # also allow trialing
+            subs_trial = stripe.Subscription.list(customer=c.id, status="trialing", limit=5)
+            if subs_trial.data:
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _get_stripe_customer_id(email: str) -> str | None:
+    """Return Stripe customer ID for email, or None."""
+    if not STRIPE_SECRET or not STRIPE_OK:
+        return None
+    try:
+        customers = stripe.Customer.list(email=email, limit=1)
+        if customers.data:
+            return customers.data[0].id
+    except Exception:
+        pass
+    return None
+
+
+def _send_welcome_email(to_email: str, invite_link: str | None = None):
+    """Send welcome + onboarding email to new subscriber."""
+    if not GMAIL_APP_PASSWORD:
+        return
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "⚡ Welcome to CarryFi — here's how to get started"
+        msg["From"]    = f"CarryFi <{GMAIL_USER}>"
+        msg["To"]      = to_email
+
+        invite_section = (
+            f"<p>Your private channel invite link:<br>"
+            f"<a href='{invite_link}' style='color:#f0b429'>{invite_link}</a><br>"
+            f"<small>One-time link — tap it to join instantly.</small></p>"
+        ) if invite_link else (
+            "<p>To get your private alerts channel invite:<br>"
+            "1. Open Telegram and message <a href='https://t.me/carryfi_alerts_bot'>@carryfi_alerts_bot</a><br>"
+            "2. Send it this email address<br>"
+            "3. The bot sends your invite link instantly</p>"
+        )
+
+        html_body = f"""
+<div style="background:#0a0a0a;color:#e5e5e5;font-family:-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:40px 32px">
+  <div style="font-size:1.5rem;font-weight:800;color:#f0b429;margin-bottom:24px">⚡ CarryFi</div>
+  <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:8px">You're in. Now let's make money.</h2>
+  <p style="color:#888;margin-bottom:24px">Payment confirmed. Follow the steps below to get your Telegram alerts live in 60 seconds.</p>
+
+  <div style="background:#111;border:1px solid #1e1e1e;border-radius:12px;padding:20px 24px;margin-bottom:16px">
+    <b style="color:#f0b429">Step 1 — Get Telegram access</b><br><br>
+    {invite_section}
+  </div>
+
+  <div style="background:#111;border:1px solid #1e1e1e;border-radius:12px;padding:20px 24px;margin-bottom:24px">
+    <b style="color:#f0b429">Step 2 — Your first trade (when an alert fires)</b><br><br>
+    <span style="color:#888;line-height:1.9">
+    1. Buy the coin on <b style="color:#ccc">spot</b> (e.g. $5k XMR on Hyperliquid)<br>
+    2. Short the same size on the <b style="color:#ccc">perp</b> (XMR-PERP, 1× leverage)<br>
+    3. Collect funding every 1h automatically — net price risk = $0<br>
+    4. Exit when rate drops below 5% or goes negative
+    </span>
+  </div>
+
+  <p style="color:#444;font-size:0.8rem">
+    Questions? Reply to this email or message <a href="https://t.me/carryfi_alerts_bot" style="color:#f0b429">@carryfi_alerts_bot</a><br>
+    Manage your subscription: <a href="https://carryfi-dashboard.onrender.com/portal?email={to_email}" style="color:#f0b429">Billing portal →</a>
+  </p>
+</div>"""
+
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+            s.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            s.sendmail(GMAIL_USER, to_email, msg.as_string())
+    except Exception as e:
+        print(f"Email send failed: {e}")
 
 
 def _load_subs():
@@ -133,6 +226,8 @@ def stripe_webhook():
             msg += "\n⚠️ No channel configured — set TELEGRAM\\_CHANNEL\\_ID"
         if TG_ADMIN:
             _tg(TG_ADMIN, msg)
+        # Send welcome email with onboarding instructions
+        threading.Thread(target=_send_welcome_email, args=(email, invite), daemon=True).start()
 
     elif etype in ("customer.subscription.deleted", "customer.subscription.paused"):
         customer_id = obj.get("customer", "")
@@ -207,8 +302,15 @@ def telegram_update():
         _tg(chat_id, "That doesn't look like an email. Send me the email you paid with and I'll get you in.")
         return jsonify({"ok": True})
 
+    # Check Stripe directly first (survives redeploys), then fall back to local file
     db = _load_subs()
-    if email in db and db[email].get("status") == "active":
+    is_active = (email in db and db[email].get("status") == "active") or _stripe_is_active(email)
+
+    if is_active:
+        # Sync to local DB if only found via Stripe
+        if email not in db:
+            db[email] = {"status": "active"}
+            _save_subs(db)
         if db[email].get("tg_invited"):
             _tg(chat_id, "✅ You're already in the channel! Check your Telegram for the previous invite link.")
             return jsonify({"ok": True})
@@ -224,7 +326,6 @@ def telegram_update():
         else:
             _tg(chat_id, "✅ Confirmed! There's a small delay generating your link — we'll send it within minutes.")
     else:
-        # Soft fallback — payment records can lag or reset; don't accuse them
         _tg(chat_id,
             "⏳ *Still confirming your payment* — this can take a few minutes after checkout.\n\n"
             "Wait 5 minutes and send your email again. "
@@ -270,6 +371,41 @@ def subscribe():
         if TG_ADMIN:
             _tg(TG_ADMIN, f"📧 *New digest signup:* `{email}`\nTotal: {len(lst)}")
     return (jsonify({"ok": True}), 200, headers)
+
+
+@server.route("/portal")
+def portal():
+    email = request.args.get("email", "").strip().lower()
+    if email and STRIPE_SECRET and STRIPE_OK:
+        cid = _get_stripe_customer_id(email)
+        if cid:
+            try:
+                session = stripe.billing_portal.Session.create(
+                    customer=cid,
+                    return_url="https://ethbtcchainblock-cpu.github.io/carryfi/",
+                )
+                return redirect(session.url)
+            except Exception:
+                pass
+    # Fallback — show a simple form asking for email
+    return """<!DOCTYPE html>
+<html><head><title>CarryFi — Manage Subscription</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0a;color:#e5e5e5;font-family:-apple-system,sans-serif;
+     min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:40px;max-width:400px;width:100%;text-align:center}
+h2{font-size:1.3rem;font-weight:800;margin-bottom:8px}p{color:#666;font-size:.9rem;margin-bottom:24px}
+input{width:100%;background:#0a0a0a;border:1px solid #2a2a2a;color:#e5e5e5;padding:12px 16px;
+      border-radius:10px;font-size:.95rem;margin-bottom:12px;outline:none}
+button{width:100%;background:#f0b429;color:#000;font-weight:800;padding:13px;border:none;
+       border-radius:10px;font-size:.95rem;cursor:pointer}</style></head>
+<body><div class="card">
+<h2>⚡ Manage Subscription</h2>
+<p>Enter the email you subscribed with to access your billing portal.</p>
+<form method="GET" action="/portal">
+  <input name="email" type="email" placeholder="you@example.com" required/>
+  <button type="submit">Open Billing Portal →</button>
+</form></div></body></html>"""
 
 
 @server.route("/health")
@@ -539,7 +675,7 @@ def success():
   </div>
 </div>
 
-<div class="footer-note">Questions? Message <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a> — we reply fast.</div>
+<div class="footer-note">Questions? Message <a href="https://t.me/carryfi_alerts_bot">@carryfi_alerts_bot</a> — we reply fast.&nbsp;&nbsp;·&nbsp;&nbsp;<a href="/portal" style="color:#444">Manage subscription →</a></div>
 </body></html>"""
 
 APR_THRESHOLD = float(os.getenv("APR_ALERT_THRESHOLD", "20"))
