@@ -363,16 +363,63 @@ def telegram_update():
     return jsonify({"ok": True})
 
 
-DIGEST_FILE = "digest_list.json"
+import digest_store
 
-def _load_digest():
+APP_BASE_URL = "https://carryfi-dashboard.onrender.com"
+
+
+def _send_digest_confirmation(email: str):
+    """Confirmation/welcome email for free digest signups (sent immediately)."""
+    if not GMAIL_APP_PASSWORD:
+        return
     try:
-        return json.loads(open(DIGEST_FILE).read())
-    except Exception:
-        return []
+        unsub = f"{APP_BASE_URL}/unsubscribe?email={email}&token={digest_store.unsub_token(email)}"
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "✅ You're subscribed — CarryFi Weekly Funding Digest"
+        msg["From"]    = f"CarryFi <{GMAIL_USER}>"
+        msg["To"]      = email
+        # Standard one-click unsubscribe header — improves deliverability + trust
+        msg["List-Unsubscribe"] = f"<{unsub}>"
+        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
-def _save_digest(lst):
-    open(DIGEST_FILE, "w").write(json.dumps(lst, indent=2))
+        html_body = f"""
+<div style="background:#0a0a0a;color:#e5e5e5;font-family:-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:40px 32px">
+  <div style="font-size:1.5rem;font-weight:800;color:#f0b429;margin-bottom:24px">⚡ CarryFi</div>
+  <h2 style="font-size:1.35rem;font-weight:800;margin-bottom:8px">You're on the list ✅</h2>
+  <p style="color:#888;line-height:1.7;margin-bottom:24px">
+    Thanks for subscribing to the <b style="color:#ccc">Free Weekly Funding Digest</b>.
+    Every Monday we'll send you the <b style="color:#f0b429">top 5 delta-neutral carry trade
+    opportunities</b> across Hyperliquid, OKX, Gate.io, BitGet & MEXC — coin, exchange, APR,
+    and exactly how to enter. No spam, ever.
+  </p>
+
+  <div style="background:#111;border:1px solid #1e1e1e;border-radius:12px;padding:20px 24px;margin-bottom:20px">
+    <b style="color:#f0b429">What you'll get every Monday</b>
+    <ul style="color:#888;line-height:1.9;margin:10px 0 0 18px;padding:0">
+      <li>The week's 5 highest-APR funding opportunities</li>
+      <li>Volume + open interest so you know they're actually liquid</li>
+      <li>The delta-neutral setup for each (long spot + short perp)</li>
+    </ul>
+  </div>
+
+  <div style="background:#1a1500;border:1px solid #f0b42933;border-radius:12px;padding:18px 24px;margin-bottom:24px">
+    <b style="color:#f0b429">Want them the moment they appear, not weekly?</b><br>
+    <span style="color:#888;line-height:1.7">Live Telegram alerts fire every 15 minutes, 24/7, the
+    instant an opportunity crosses 20% APR.
+    <a href="https://ethbtcchainblock-cpu.github.io/carryfi/" style="color:#f0b429">Upgrade for $19/mo →</a></span>
+  </div>
+
+  <p style="color:#444;font-size:0.78rem;line-height:1.6">
+    You're receiving this because you signed up at carryfi.<br>
+    Not for you? <a href="{unsub}" style="color:#666">Unsubscribe instantly</a> — one click, no questions.
+  </p>
+</div>"""
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+            s.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            s.sendmail(GMAIL_USER, email, msg.as_string())
+    except Exception as e:
+        print(f"Digest confirmation email failed: {e}")
 
 
 @server.route("/subscribe", methods=["POST", "OPTIONS"])
@@ -386,15 +433,45 @@ def subscribe():
         return ("", 204, headers)
     data = request.json or {}
     email = (data.get("email") or "").strip().lower()
-    if not email or "@" not in email:
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
         return (jsonify({"error": "invalid email"}), 400, headers)
-    lst = _load_digest()
-    if email not in lst:
-        lst.append(email)
-        _save_digest(lst)
+
+    status = digest_store.add(email)   # durable (Upstash) with local fallback
+    if status == "added":
+        # Send confirmation email + notify admin (don't block the response)
+        threading.Thread(target=_send_digest_confirmation, args=(email,), daemon=True).start()
         if TG_ADMIN:
-            _tg(TG_ADMIN, f"📧 *New digest signup:* `{email}`\nTotal: {len(lst)}")
-    return (jsonify({"ok": True}), 200, headers)
+            durable = "✅ durable" if digest_store.is_durable() else "⚠️ file-only"
+            _tg(TG_ADMIN, f"📧 *New digest signup:* `{email}`\nTotal: {digest_store.count()} ({durable})")
+    return (jsonify({"ok": True, "status": status}), 200, headers)
+
+
+@server.route("/unsubscribe", methods=["GET", "POST"])
+def unsubscribe():
+    email = request.args.get("email", "").strip().lower()
+    token = request.args.get("token", "")
+    ok = bool(email) and digest_store.verify_unsub(email, token)
+    if ok:
+        digest_store.remove(email)
+        if TG_ADMIN:
+            _tg(TG_ADMIN, f"👋 *Digest unsubscribe:* `{email}`")
+    # One-click POST (from email clients) just needs a 200
+    if request.method == "POST":
+        return ("", 200) if ok else ("", 400)
+    note = ("You've been unsubscribed. You won't receive any more emails from CarryFi."
+            if ok else "We couldn't verify that unsubscribe link. Email us and we'll remove you manually.")
+    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>CarryFi — Unsubscribe</title>
+<style>*{{box-sizing:border-box;margin:0;padding:0}}body{{background:#0a0a0a;color:#e5e5e5;
+font-family:-apple-system,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}}
+.card{{background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:40px;max-width:420px;text-align:center}}
+.logo{{font-size:1.3rem;font-weight:800;color:#f0b429;margin-bottom:20px}}
+h2{{font-size:1.2rem;margin-bottom:10px}}p{{color:#888;line-height:1.6;font-size:.92rem}}
+a{{color:#f0b429;text-decoration:none}}</style></head>
+<body><div class="card"><div class="logo">⚡ CarryFi</div>
+<h2>{'Unsubscribed' if ok else 'Hmm —'}</h2><p>{note}</p>
+<p style="margin-top:18px"><a href="https://ethbtcchainblock-cpu.github.io/carryfi/">← Back to CarryFi</a></p>
+</div></body></html>"""
 
 
 @server.route("/portal")
