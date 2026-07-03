@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CarryFi — How to Turn an Alert Into Real Yield</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1280px; height: 720px; overflow: hidden; background: #0a0a0a; font-family: -apple-system, 'Inter', sans-serif; color: #e5e5e5; }
+
+    /* Slide system */
+    .slide {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+    .slide.active { opacity: 1; pointer-events: all; }
+
+    /* Progress bar */
+    #progress {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: #f0b429; transition: width 0.4s ease; z-index: 100;
+    }
+
+    /* Slide counter */
+    #counter {
+      position: fixed; bottom: 24px; right: 32px;
+      font-size: 0.75rem; color: #333; letter-spacing: 0.05em;
+    }
+
+    /* Nav buttons */
+    #nav {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 12px; z-index: 100;
+    }
+    #nav button {
+      background: #1a1a1a; border: 1px solid #2a2a2a; color: #888;
+      padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 0.8rem;
+      transition: all 0.15s;
+    }
+    #nav button:hover { background: #222; color: #ccc; }
+    #nav button.primary { background: #f0b429; color: #000; border-color: #f0b429; font-weight: 700; }
+    #nav button.primary:hover { opacity: 0.85; }
+
+    /* Typography */
+    .gold { color: #f0b429; }
+    .green { color: #4ade80; }
+    .red { color: #f87171; }
+    .muted { color: #666; }
+
+    h1 { font-size: 3.2rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; }
+    h2 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+    h3 { font-size: 1.3rem; font-weight: 600; }
+    p  { font-size: 1.05rem; color: #999; line-height: 1.7; }
+
+    /* Components */
+    .tag {
+      display: inline-block; padding: 4px 12px; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .tag-gold { background: #f0b42922; color: #f0b429; border: 1px solid #f0b42944; }
+    .tag-green { background: #4ade8022; color: #4ade80; border: 1px solid #4ade8044; }
+
+    .card {
+      background: #111; border: 1px solid #1e1e1e; border-radius: 16px;
+      padding: 28px 32px;
+    }
+
+    /* Telegram mock */
+    .tg-bubble {
+      background: #1e2433; border-radius: 18px 18px 18px 4px;
+      padding: 20px 24px; max-width: 480px; position: relative;
+      border: 1px solid #2a3550;
+    }
+    .tg-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .tg-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: #f0b429; display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+    }
+    .tg-name { font-size: 0.85rem; font-weight: 600; color: #7fb3ff; }
+    .tg-time { font-size: 0.72rem; color: #555; margin-left: auto; }
+    .tg-line { font-size: 0.95rem; line-height: 1.9; color: #ddd; }
+    .tg-line b { color: #f0b429; }
+    .tg-line code { background: #0d1117; padding: 1px 6px; border-radius: 4px; font-family: monospace; color: #7fb3ff; font-size: 0.9rem; }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 640px; }
+    .step-row {
+      display: flex; gap: 16px; align-items: flex-start;
+      background: #111; border: 1px solid #1e1e1e; border-radius: 12px; padding: 18px 20px;
+      transition: border-color 0.3s, background 0.3s;
+    }
+    .step-row.highlight { border-color: #f0b42966; background: #1a1500; }
+    .step-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #1e1e1e; color: #f0b429; font-weight: 700; font-size: 0.9rem;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .step-num.active-num { background: #f0b429; color: #000; }
+    .step-text h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 3px; }
+    .step-text p { font-size: 0.85rem; color: #666; margin: 0; }
+
+    /* Math box */
+    .math-box {
+      background: #0d1117; border: 1px solid #1e2433; border-radius: 12px;
+      padding: 20px 28px; font-family: monospace; font-size: 1rem; line-height: 2.2;
+    }
+    .math-box .label { color: #555; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 4px; }
+    .math-row { display: flex; justify-content: space-between; align-items: center; }
+    .math-row .key { color: #888; }
+    .math-row .val { color: #e5e5e5; font-weight: 600; }
+    .math-divider { border-top: 1px solid #1e2433; margin: 8px 0; }
+    .math-total .key { color: #ccc; font-size: 1.1rem; }
+    .math-total .val { color: #4ade80; font-size: 1.3rem; font-weight: 800; }
+
+    /* Price chart mock */
+    .chart-area { position: relative; width: 480px; height: 180px; }
+    .chart-area canvas { width: 100%; height: 100%; }
+
+    /* Position rows */
+    .pos-table { width: 100%; max-width: 580px; border-collapse: separate; border-spacing: 0 8px; }
+    .pos-table th { font-size: 0.72rem; color: #555; text-transform: uppercase; letter-spacing: 0.08em; padding: 0 16px 8px; text-align: left; }
+    .pos-table td { padding: 14px 16px; background: #111; font-size: 0.9rem; }
+    .pos-table td:first-child { border-radius: 10px 0 0 10px; }
+    .pos-table td:last-child { border-radius: 0 10px 10px 0; }
+
+    /* Typing animation */
+    .typing::after {
+      content: '|';
+      animation: blink 0.8s step-end infinite;
+      color: #f0b429;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Ping animation */
+    .ping {
+      width: 12px; height: 12px; border-radius: 50%; background: #f0b429;
+      position: relative; display: inline-block;
+    }
+    .ping::after {
+      content: ''; position: absolute; inset: -4px;
+      border-radius: 50%; border: 2px solid #f0b42966;
+      animation: ping 1.2s ease-out infinite;
+    }
+    @keyframes ping { 0%{transform:scale(1);opacity:1} 100%{transform:scale(2.5);opacity:0} }
+
+    /* Fade-up animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide.active .anim { animation: fadeUp 0.5s ease forwards; }
+    .slide.active .anim-1 { animation-delay: 0.1s; opacity: 0; }
+    .slide.active .anim-2 { animation-delay: 0.3s; opacity: 0; }
+    .slide.active .anim-3 { animation-delay: 0.5s; opacity: 0; }
+    .slide.active .anim-4 { animation-delay: 0.7s; opacity: 0; }
+    .slide.active .anim-5 { animation-delay: 0.9s; opacity: 0; }
+
+    /* Logo mark */
+    .logomark { display: flex; align-items: center; gap: 10px; }
+    .logomark svg { width: 40px; height: 40px; }
+    .logomark span { font-size: 1.4rem; font-weight: 800; color: #f0b429; letter-spacing: -0.02em; }
+
+    /* Two-col layout */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%; max-width: 900px; align-items: center; }
+
+    /* Exit signal */
+    .signal-row {
+      display: flex; align-items: center; gap: 16px; padding: 14px 20px;
+      background: #111; border-radius: 10px; border: 1px solid #1e1e1e;
+      font-size: 0.9rem;
+    }
+    .signal-row.bad { border-color: #f8717144; background: #1a0d0d; }
+    .signal-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: #4ade80; }
+    .dot-red   { background: #f87171; }
+    .dot-yellow { background: #f0b429; }
+  </style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="counter"></div>
+
+<!-- SLIDE 1: Title -->
+<div class="slide active" id="s1">
+  <div class="anim anim-1" style="margin-bottom:24px">
+    <div class="logomark">
+      <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" rx="80" fill="#0a0a0a"/>
+        <rect width="399" height="399" x=".5" y=".5" rx="79.5" fill="none" stroke="#f0b429" stroke-width="1.5" stroke-opacity=".25"/>
+        <polygon points="218,52 118,202 162,202 140,348 282,182 234,182" fill="#f0b429"/>
+      </svg>
+      <span>CarryFi</span>
+    </div>
+  </div>
+  <h1 class="anim anim-2" style="text-align:center;max-width:700px">
+    How to turn a <span class="gold">Telegram alert</span><br>into real yield
+  </h1>
+  <p class="anim anim-3" style="margin-top:20px;text-align:center;max-width:500px">
+    A step-by-step walkthrough for complete beginners.<br>No experience needed.
+  </p>
+  <div class="anim anim-4" style="margin-top:40px;display:flex;gap:32px">
+    <div style="text-align:center">
+      <div style="font-size:1.8rem;font-weight:800;color:#f0b429">20–110%</div>
+      <div style="font-size:0.75rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">APR range</div>
+    </div>
+    <div style="width:1px;background:#1e1e1e"></div>
+    <div style="text-align:center">
+      <div style="font-size:1.8rem;font-weight:800;color:#f0b429">$0</div>
+      <div style="font-size:0.75rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">Price risk</div>
+    </div>
+    <div style="width:1px;background:#1e1e1e"></div>
+    <div style="text-align:center">
+      <div style="font-size:1.8rem;font-weight:800;color:#f0b429">15 min</div>
+      <div style="font-size:0.75rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">Setup time</div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 2: The Alert -->
+<div class="slide" id="s2">
+  <div class="anim anim-1" style="margin-bottom:28px;text-align:center">
+    <span class="tag tag-gold" style="margin-bottom:12px;display:inline-block">Step 0</span>
+    <h2>You get <span class="gold">this message</span> on Telegram</h2>
+  </div>
+  <div class="anim anim-2">
+    <div class="tg-bubble">
+      <div class="tg-header">
+        <div class="tg-icon">⚡</div>
+        <div>
+          <div class="tg-name">CarryFi Alerts</div>
+        </div>
+        <div class="tg-time">just now</div>
+      </div>
+      <div class="tg-line">
+        🚨 <b>CarryFi Alert</b><br><br>
+        <b>XMR</b> on <b>Hyperliquid</b><br>
+        Rate: <code>+0.0126% / 1h</code><br>
+        APR: <code>110.4%</code><br>
+        Next funding: <code>in 43 min</code><br><br>
+        <b>Strategy:</b> Long spot + Short perp → collect every 1h<br>
+        Delta neutral = no price risk 🟢
+      </div>
+    </div>
+  </div>
+  <div class="anim anim-3" style="margin-top:28px;display:flex;gap:20px;max-width:560px">
+    <div class="card" style="flex:1;padding:16px 20px">
+      <div style="font-size:0.75rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Coin</div>
+      <div style="font-size:1.1rem;font-weight:700">XMR</div>
+    </div>
+    <div class="card" style="flex:1;padding:16px 20px">
+      <div style="font-size:0.75rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Exchange</div>
+      <div style="font-size:1.1rem;font-weight:700">Hyperliquid</div>
+    </div>
+    <div class="card" style="flex:1;padding:16px 20px;border-color:#f0b42944;background:#1a1500">
+      <div style="font-size:0.75rem;color:#f0b429;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">APR</div>
+      <div style="font-size:1.1rem;font-weight:700;color:#f0b429">110.4%</div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 3: What is delta neutral -->
+<div class="slide" id="s3">
+  <div class="anim anim-1" style="margin-bottom:28px;text-align:center">
+    <span class="tag tag-gold" style="margin-bottom:12px;display:inline-block">The Strategy</span>
+    <h2>Delta neutral means <span class="gold">price doesn't matter</span></h2>
+    <p style="margin-top:12px;max-width:540px">You hold two equal and opposite positions. They cancel each other out — you profit from the <em style="color:#ccc">funding payment</em>, not from price movement.</p>
+  </div>
+  <div class="anim anim-2 two-col" style="gap:24px">
+    <div class="card" style="border-color:#4ade8044">
+      <div class="tag tag-green" style="margin-bottom:14px">Position 1 — SPOT</div>
+      <h3 style="margin-bottom:8px">Buy XMR on spot</h3>
+      <p style="font-size:0.9rem">You own the actual coin. If price goes up, you profit here.</p>
+      <div style="margin-top:16px;font-size:2rem">📈</div>
+    </div>
+    <div class="card" style="border-color:#f8717144">
+      <div class="tag" style="background:#f8717122;color:#f87171;border:1px solid #f8717144;margin-bottom:14px">Position 2 — PERP SHORT</div>
+      <h3 style="margin-bottom:8px">Short XMR perp</h3>
+      <p style="font-size:0.9rem">Same dollar size. If price goes up, you lose here — exactly cancels spot profit.</p>
+      <div style="margin-top:16px;font-size:2rem">📉</div>
+    </div>
+  </div>
+  <div class="anim anim-3" style="margin-top:24px;background:#0d1117;border:1px solid #1e2433;border-radius:12px;padding:16px 28px;text-align:center;max-width:560px">
+    <span style="color:#555;font-size:0.85rem">Net price exposure = </span>
+    <span style="color:#4ade80;font-weight:800;font-size:1.1rem"> $0.00</span>
+    <span style="color:#555;font-size:0.85rem"> &nbsp;·&nbsp; You only collect the </span>
+    <span style="color:#f0b429;font-weight:700">funding payment</span>
+  </div>
+</div>
+
+<!-- SLIDE 4: Execute Step 1 -->
+<div class="slide" id="s4">
+  <div class="anim anim-1" style="margin-bottom:24px;text-align:center">
+    <span class="tag tag-gold" style="margin-bottom:12px;display:inline-block">Execution — Step 1 of 2</span>
+    <h2>Buy <span class="gold">XMR on spot</span> on Hyperliquid</h2>
+  </div>
+  <div class="anim anim-2 two-col" style="max-width:860px;gap:40px">
+    <div class="steps">
+      <div class="step-row highlight">
+        <div class="step-num active-num">1</div>
+        <div class="step-text">
+          <h4>Go to Hyperliquid → Spot → XMR</h4>
+          <p>Search "XMR" in the spot market</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <h4>Click Buy · choose a dollar amount</h4>
+          <p>E.g. $5,000 — use market or limit order</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <h4>Note exactly how many XMR you bought</h4>
+          <p>E.g. 47.2 XMR — you need this exact number for step 2</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="text-align:center;padding:32px">
+        <div style="font-size:3rem;margin-bottom:16px">🟢</div>
+        <div style="font-size:0.8rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">You now own</div>
+        <div style="font-size:1.8rem;font-weight:800;color:#4ade80">47.2 XMR</div>
+        <div style="font-size:0.85rem;color:#666;margin-top:8px">≈ $5,000 worth</div>
+        <div style="margin-top:20px;font-size:0.8rem;color:#555">If XMR goes up → your spot position profits</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 5: Execute Step 2 -->
+<div class="slide" id="s5">
+  <div class="anim anim-1" style="margin-bottom:24px;text-align:center">
+    <span class="tag tag-gold" style="margin-bottom:12px;display:inline-block">Execution — Step 2 of 2</span>
+    <h2>Short <span class="gold">the same size</span> on the perp</h2>
+  </div>
+  <div class="anim anim-2 two-col" style="max-width:860px;gap:40px">
+    <div class="steps">
+      <div class="step-row highlight">
+        <div class="step-num active-num">1</div>
+        <div class="step-text">
+          <h4>Go to Hyperliquid → Perp → XMR-PERP</h4>
+          <p>Switch to the perpetual futures tab</p>
+        </div>
+      </div>
+      <div class="step-row highlight">
+        <div class="step-num active-num">2</div>
+        <div class="step-text">
+          <h4>Click Sell/Short — enter 47.2 XMR</h4>
+          <p>Same quantity you bought on spot — exactly</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <h4>Use 1× leverage, isolated margin</h4>
+          <p>Keeps risk minimal — don't use high leverage here</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="text-align:center;padding:32px">
+        <div style="font-size:3rem;margin-bottom:16px">🔴</div>
+        <div style="font-size:0.8rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">You are short</div>
+        <div style="font-size:1.8rem;font-weight:800;color:#f87171">47.2 XMR perp</div>
+        <div style="font-size:0.85rem;color:#666;margin-top:8px">≈ $5,000 short</div>
+        <div style="margin-top:20px;font-size:0.8rem;color:#555">If XMR goes up → your short loses exactly what spot gained</div>
+      </div>
+    </div>
+  </div>
+  <div class="anim anim-3" style="margin-top:20px;background:#0d1117;border:1px solid #4ade8033;border-radius:10px;padding:14px 24px;font-size:0.9rem;color:#888">
+    ✅ You are now <strong style="color:#4ade80">delta neutral</strong> — price direction is irrelevant. Every hour, Hyperliquid pays you for holding the short.
+  </div>
+</div>
+
+<!-- SLIDE 6: The math -->
+<div class="slide" id="s6">
+  <div class="anim anim-1" style="margin-bottom:28px;text-align:center">
+    <span class="tag tag-gold" style="margin-bottom:12px;display:inline-block">The Numbers</span>
+    <h2>What does <span class="gold">110% APR</span> actually pay you?</h2>
+  </div>
+  <div class="anim anim-2 two-col" style="max-width:800px;gap:32px">
+    <div class="math-box">
+      <span class="label">With $5,000 capital</span>
+      <div class="math-row"><span class="key">APR</span><span class="val gold">110.4%</span></div>
+      <div class="math-divider"></div>
+      <div class="math-row"><span class="key">Per hour (HL)</span><span class="val">≈ $6.29</span></div>
+      <div class="math-row"><span class="key">Per day</span><span class="val">≈ $151</span></div>
+      <div class="math-row"><span class="key">Per month</span><span class="val">≈ $4,600</span></div>
+      <div class="math-divider"></div>
+      <div class="math-row math-total"><span class="key">Annual yield</span><span class="val">$5,520</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card" style="border-color:#f0b42944;background:#1a1500">
+        <div style="font-size:0.8rem;color:#f0b429;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Reality check</div>
+        <p style="font-size:0.88rem">Rates fluctuate. 110% won't last forever — typical windows are 2–72 hours. CarryFi alerts you the moment it opens so you capture it, and again when it drops so you can exit.</p>
+      </div>
+      <div class="card" style="border-color:#4ade8044">
+        <div style="font-size:0.8rem;color:#4ade80;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Even at 30% APR…</div>
+        <div style="font-size:1.3rem;font-weight:800;color:#4ade80;margin-bottom:4px">$125/mo on $5k</div>
+        <p style="font-size:0.85rem">That's 6.6× your subscription cost every single month.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 7: Collect funding -->
+<div class="slide" id="s7">
+  <div class="anim anim-1" style="margin-bottom:24px;text-align:center">
+    <span class="tag tag-gold" style="margin-bottom:12px;display:inline-block">While You Hold</span>
+    <h2>Funding pays you <span class="gold">every hour</span></h2>
+    <p style="margin-top:10px;max-width:520px">On Hyperliquid, funding settles every 1 hour. On OKX and Gate.io, every 8 hours. You don't do anything — it just hits your account.</p>
+  </div>
+  <div class="anim anim-2" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:560px">
+    <div style="display:flex;justify-content:space-between;padding:0 8px;font-size:0.72rem;color:#444;text-transform:uppercase;letter-spacing:.08em">
+      <span>Time</span><span>Event</span><span style="color:#4ade80">Credited</span>
+    </div>
+    <div class="signal-row">
+      <div class="signal-dot dot-green"></div>
+      <span style="color:#888;font-size:0.85rem;min-width:90px">08:00 UTC</span>
+      <span style="flex:1;font-size:0.85rem">Funding settles — XMR/Hyperliquid</span>
+      <span class="green" style="font-weight:700;font-size:0.9rem">+$6.29</span>
+    </div>
+    <div class="signal-row">
+      <div class="signal-dot dot-green"></div>
+      <span style="color:#888;font-size:0.85rem;min-width:90px">09:00 UTC</span>
+      <span style="flex:1;font-size:0.85rem">Funding settles — XMR/Hyperliquid</span>
+      <span class="green" style="font-weight:700;font-size:0.9rem">+$6.31</span>
+    </div>
+    <div class="signal-row">
+      <div class="signal-dot dot-green"></div>
+      <span style="color:#888;font-size:0.85rem;min-width:90px">10:00 UTC</span>
+      <span style="flex:1;font-size:0.85rem">Funding settles — XMR/Hyperliquid</span>
+      <span class="green" style="font-weight:700;font-size:0.9rem">+$6.27</span>
+    </div>
+    <div class="signal-row">
+      <div class="signal-dot dot-yellow"></div>
+      <span style="color:#888;font-size:0.85rem;min-width:90px">11:00 UTC</span>
+      <span style="flex:1;font-size:0.85rem">CarryFi: rate dropping — watch for exit</span>
+      <span class="gold" style="font-weight:700;font-size:0.9rem">+$4.10</span>
+    </div>
+  </div>
+  <div class="anim anim-3" style="margin-top:20px;text-align:center">
+    <div style="display:flex;align-items:center;gap:10px;justify-content:center">
+      <div class="ping"></div>
+      <span style="font-size:0.9rem;color:#888">You get a new alert if the rate drops below your threshold</span>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 8: When to exit -->
+<div class="slide" id="s8">
+  <div class="anim anim-1" style="margin-bottom:24px;text-align:center">
+    <span class="tag tag-gold" style="margin-bottom:12px;display:inline-block">Exiting the Trade</span>
+    <h2>Close when the <span class="gold">rate stops paying</span></h2>
+    <p style="margin-top:10px;max-width:520px">CarryFi doesn't alert you when to exit yet — but here's the simple rule:</p>
+  </div>
+  <div class="anim anim-2" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:560px">
+    <div class="signal-row">
+      <div class="signal-dot dot-green"></div>
+      <span style="flex:1;font-size:0.9rem"><strong>APR above 20%</strong> — stay in, keep collecting</span>
+    </div>
+    <div class="signal-row">
+      <div class="signal-dot dot-yellow"></div>
+      <span style="flex:1;font-size:0.9rem"><strong>APR between 5–20%</strong> — decide based on exchange fees</span>
+    </div>
+    <div class="signal-row bad">
+      <div class="signal-dot dot-red"></div>
+      <span style="flex:1;font-size:0.9rem"><strong>Rate goes negative</strong> — EXIT immediately, you'd be paying instead of collecting</span>
+    </div>
+  </div>
+  <div class="anim anim-3" style="margin-top:24px;max-width:560px">
+    <div class="card" style="padding:20px 24px">
+      <h4 style="margin-bottom:10px;font-size:0.95rem">To close the trade:</h4>
+      <div style="font-size:0.88rem;color:#888;line-height:2">
+        1. Close your <span class="red">short perp</span> — buy back the same amount<br>
+        2. Sell your <span class="green">spot position</span> — sell the same XMR you bought<br>
+        3. Your net P&L = just the funding you collected ✅
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 9: CTA -->
+<div class="slide" id="s9">
+  <div class="anim anim-1" style="text-align:center;margin-bottom:32px">
+    <h1 style="font-size:2.8rem">You're now ready.<br><span class="gold">Wait for the next alert.</span></h1>
+    <p style="margin-top:16px;max-width:520px">CarryFi monitors 2,500+ markets 24/7 so you don't have to. The moment a high-yield window opens, your phone buzzes. Execute the two-step trade. Collect.</p>
+  </div>
+  <div class="anim anim-2" style="display:flex;gap:20px">
+    <div class="card" style="text-align:center;min-width:160px;padding:24px 28px">
+      <div style="font-size:2rem;font-weight:800;color:#f0b429">2,500+</div>
+      <div style="font-size:0.75rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">Markets watched</div>
+    </div>
+    <div class="card" style="text-align:center;min-width:160px;padding:24px 28px">
+      <div style="font-size:2rem;font-weight:800;color:#f0b429">15 min</div>
+      <div style="font-size:0.75rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">Alert frequency</div>
+    </div>
+    <div class="card" style="text-align:center;min-width:160px;padding:24px 28px">
+      <div style="font-size:2rem;font-weight:800;color:#f0b429">$0</div>
+      <div style="font-size:0.75rem;color:#555;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">Price risk</div>
+    </div>
+  </div>
+  <div class="anim anim-3" style="margin-top:32px;text-align:center">
+    <div style="font-size:0.85rem;color:#555">Questions? Message the bot — we reply fast.</div>
+    <div style="margin-top:8px;font-size:1rem;color:#f0b429;font-weight:600">@carryfi_alerts_bot</div>
+  </div>
+</div>
+
+<div id="nav">
+  <button id="btn-prev" onclick="prev()">← Back</button>
+  <button id="btn-next" class="primary" onclick="next()">Next →</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  function show(n) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(total - 1, n));
+    slides[current].classList.add('active');
+    document.getElementById('progress').style.width = ((current + 1) / total * 100) + '%';
+    document.getElementById('counter').textContent = (current + 1) + ' / ' + total;
+    document.getElementById('btn-prev').style.display = current === 0 ? 'none' : '';
+    document.getElementById('btn-next').textContent = current === total - 1 ? '▶ Replay' : 'Next →';
+  }
+
+  function next() { current === total - 1 ? show(0) : show(current + 1); }
+  function prev() { show(current - 1); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') next();
+    if (e.key === 'ArrowLeft') prev();
+  });
+
+  show(0);
+</script>
+</body>
+</html>

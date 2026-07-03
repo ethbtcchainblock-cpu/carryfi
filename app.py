@@ -18,21 +18,30 @@ from dash import dash_table, dcc, html
 from dash.dependencies import Input, Output
 from flask import request, jsonify, redirect
 
+import kv
 from fetcher import fetch_all
+from alerts import check_and_alert
 
 _cache: dict = {"rows": [], "updated": "—"}
 _lock = threading.Lock()
 
 
 def refresh_loop():
-    # NOTE: alerting is owned solely by alert_runner.py (GitHub Actions cron).
-    # This loop only refreshes the dashboard cache — calling check_and_alert here
-    # caused duplicate alerts (two systems, two separate dedup caches).
+    # Alerting runs here too (every 5 min while Render is awake) AND in the
+    # GitHub Actions runner (survives Render sleeping). Both dedupe through
+    # the same Upstash keys via kv.claim_alert, so no duplicates. Without
+    # Upstash the caches would be separate again, so alerting stays owned
+    # solely by the Actions runner in that case.
     while True:
         rows = fetch_all()
         with _lock:
             _cache["rows"] = rows
             _cache["updated"] = datetime.now(tz=timezone.utc).strftime("%H:%M:%S UTC")
+        if kv.enabled():
+            try:
+                check_and_alert(rows)
+            except Exception as e:
+                print(f"refresh_loop alert error: {e}")
         time.sleep(300)
 
 
@@ -171,14 +180,40 @@ def _tg(chat_id, text):
         pass
 
 
-def _make_invite():
+def _make_invite(email: str | None = None):
     try:
         import requests as _r
         r = _r.post(f"https://api.telegram.org/bot{TG_TOKEN}/createChatInviteLink",
                     json={"chat_id": TG_CHANNEL, "member_limit": 1}, timeout=10).json()
-        return r.get("result", {}).get("invite_link")
+        link = r.get("result", {}).get("invite_link")
+        # Remember who this link belongs to — when they join the channel, the
+        # chat_member update carries the link, letting us map email → user id
+        # (that mapping is what makes auto-kick on cancellation possible).
+        if link and email:
+            kv.remember_invite(link, email)
+        return link
     except Exception:
         return None
+
+
+def _kick_from_channel(email: str) -> bool:
+    """Remove a cancelled subscriber from the channel. True on success."""
+    uid = kv.tg_user(email)
+    if not (uid and TG_TOKEN and TG_CHANNEL):
+        return False
+    try:
+        import requests as _r
+        r = _r.post(f"https://api.telegram.org/bot{TG_TOKEN}/banChatMember",
+                    json={"chat_id": TG_CHANNEL, "user_id": int(uid)}, timeout=10).json()
+        if not r.get("ok"):
+            return False
+        # Unban immediately so they can rejoin with a fresh invite if they resubscribe
+        _r.post(f"https://api.telegram.org/bot{TG_TOKEN}/unbanChatMember",
+                json={"chat_id": TG_CHANNEL, "user_id": int(uid), "only_if_banned": True},
+                timeout=10)
+        return True
+    except Exception:
+        return False
 
 
 # Secret token Telegram echoes back in X-Telegram-Bot-Api-Secret-Token so we can
@@ -192,9 +227,13 @@ def _register_tg_webhook():
         return
     try:
         import requests as _r
+        # chat_member must be requested explicitly — Telegram doesn't deliver it
+        # by default. It's how we learn subscribers' user ids when they join.
         _r.post(f"https://api.telegram.org/bot{TG_TOKEN}/setWebhook",
                 json={"url": "https://carryfi-dashboard.onrender.com/telegram",
-                      "secret_token": TG_WEBHOOK_SECRET}, timeout=10)
+                      "secret_token": TG_WEBHOOK_SECRET,
+                      "allowed_updates": ["message", "channel_post", "chat_member"]},
+                timeout=10)
     except Exception:
         pass
 
@@ -226,7 +265,7 @@ def stripe_webhook():
         db    = _load_subs()
         db[email] = {"status": "active", "customer": obj.get("customer", "")}
         _save_subs(db)
-        invite = _make_invite() if TG_CHANNEL else None
+        invite = _make_invite(email) if TG_CHANNEL else None
         msg = f"✅ *New subscriber!*\nEmail: `{email}`"
         if invite:
             msg += f"\nInvite link (send this to them):\n{invite}"
@@ -248,8 +287,12 @@ def stripe_webhook():
         if email in db:
             db[email]["status"] = "cancelled"
             _save_subs(db)
+        kicked = _kick_from_channel(email)
         if TG_ADMIN:
-            _tg(TG_ADMIN, f"❌ *Cancelled:* `{email}`\nRemove from channel manually.")
+            _tg(TG_ADMIN, f"❌ *Cancelled:* `{email}`\n" +
+                ("🥾 Auto-removed from the channel."
+                 if kicked else
+                 "⚠️ Couldn't auto-remove (no Telegram id on file) — remove from channel manually."))
 
     return jsonify({"ok": True})
 
@@ -261,6 +304,27 @@ def telegram_update():
     if TG_WEBHOOK_SECRET and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != TG_WEBHOOK_SECRET:
         return jsonify({"error": "unauthorized"}), 403
     data = request.json or {}
+
+    # Someone joined (or left) the channel. If they came in through an invite
+    # link we generated, the link tells us which subscriber this is — store
+    # their user id so cancellation can remove them automatically.
+    member_evt = data.get("chat_member", {})
+    if member_evt:
+        evt_chat = str(member_evt.get("chat", {}).get("id", ""))
+        new_member = member_evt.get("new_chat_member", {})
+        user = new_member.get("user", {})
+        link = (member_evt.get("invite_link") or {}).get("invite_link", "")
+        if (evt_chat == str(TG_CHANNEL) and new_member.get("status") == "member"
+                and user.get("id") and link):
+            email = kv.invite_email(link)
+            if email:
+                kv.remember_tg_user(email, str(user["id"]))
+                db = _load_subs()
+                db.setdefault(email, {"status": "active"})["tg_invited"] = True
+                _save_subs(db)
+                if TG_ADMIN:
+                    _tg(TG_ADMIN, f"👋 `{email}` joined the alerts channel.")
+        return jsonify({"ok": True})
 
     # Channel auto-detect is a ONE-TIME bootstrap only. If TELEGRAM_CHANNEL_ID is
     # already set via env, never reassign — otherwise anyone who adds the bot to a
@@ -301,7 +365,7 @@ def telegram_update():
     # Admin command: /invite email@example.com — force-send an invite link
     if text.startswith("/invite ") and str(chat_id) == str(TG_ADMIN):
         target_email = text.split(" ", 1)[1].strip().lower()
-        invite = _make_invite() if TG_CHANNEL else None
+        invite = _make_invite(target_email) if TG_CHANNEL else None
         if invite:
             db = _load_subs()
             if target_email not in db:
@@ -332,13 +396,16 @@ def telegram_update():
         if email not in db:
             db[email] = {"status": "active"}
             _save_subs(db)
+        # They're talking to the bot directly, so we know their user id — the
+        # most reliable place to capture it for auto-kick on cancellation.
+        kv.remember_tg_user(email, str(chat_id))
         if db[email].get("tg_invited"):
             portal = f"https://carryfi-dashboard.onrender.com/portal?email={email}"
             _tg(chat_id,
                 f"✅ You're already in the channel!\n\n"
                 f"Need to manage your subscription?\n{portal}")
             return jsonify({"ok": True})
-        invite = _make_invite() if TG_CHANNEL else None
+        invite = _make_invite(email) if TG_CHANNEL else None
         if invite:
             db[email]["tg_invited"] = True
             _save_subs(db)
@@ -511,7 +578,12 @@ button{width:100%;background:#f0b429;color:#000;font-weight:800;padding:13px;bor
 
 @server.route("/health")
 def health():
-    return jsonify({"status": "ok", "subscribers": len(_load_subs()), "stripe": bool(STRIPE_SECRET and STRIPE_OK)})
+    return jsonify({
+        "status": "ok",
+        "subscribers": len(_load_subs()),
+        "stripe": bool(STRIPE_SECRET and STRIPE_OK),
+        "alert_dedup": "upstash" if kv.enabled() else "file-only (in-app alerting disabled)",
+    })
 
 
 @server.route("/success")

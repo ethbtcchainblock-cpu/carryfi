@@ -32,6 +32,10 @@ jobs:
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
           APR_ALERT_THRESHOLD: ${{ vars.APR_ALERT_THRESHOLD || '20' }}
+          # Shared dedup cache with the Render app's in-process alerting —
+          # without these, the two systems would double-send every alert.
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
         run: python alert_runner.py
 
       - name: Monitor PH comments + auto-reply

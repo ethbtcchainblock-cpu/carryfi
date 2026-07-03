@@ -724,6 +724,9 @@ def register_admin(server):
             link = r.get("result", {}).get("invite_link", "")
             if not link:
                 return jsonify({"error": r.get("description", "Failed")})
+            if email:
+                import kv
+                kv.remember_invite(link, email)
             return jsonify({"link": link, "email": email})
         except Exception as e:
             return jsonify({"error": str(e)})

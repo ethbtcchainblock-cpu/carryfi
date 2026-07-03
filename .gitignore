@@ -8,3 +8,9 @@ __pycache__/
 digest_list.json
 channel_config.json
 subscribers.json
+alert_cache.json
+kv_fallback.json
+render_alert_cache.json
+ph_comment_cache.json
+setup_secrets.py
+docs/success_preview.html
